@@ -210,6 +210,7 @@ export default {
 
 
     onMounted(() => {
+      // console.log(process.env.VUE_APP_BASE_URL)
       packageStore.fetchPackages(filterPram)
     });
 
@@ -430,7 +431,7 @@ export default {
       curPackage.value = pkg
       console.log(curPackage.value)
       modal_show.value.qrCode_show = true
-      qrValue.value = `http://192.168.0.119:8080/#/AppManage/app-detail/${curPackage.value.id}`
+      qrValue.value = `${process.env.VUE_APP_BASE_URL}#/AppManage/app-detail/${curPackage.value.id}`
     }
 
 

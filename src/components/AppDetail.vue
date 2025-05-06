@@ -63,9 +63,13 @@ const props = defineProps({
 
 const idRef = toRef(props, 'id')
 
-const qrCodeValue = ref('http://192.168.0.119:8080/#/AppManage/app-detail/'+idRef.value); // 动态生成二维码内容
+
+const qrCodeValue = ref(`${process.env.VUE_APP_BASE_URL}#/AppManage/app-detail/${idRef.value}`); // 动态生成二维码内容
+// console.log(qrCodeValue.value)
 
 const packageInfo = ref(null)
+
+
 
 const systemInfo = computed(() => {
   if(packageInfo.value.system == 'ios'){
