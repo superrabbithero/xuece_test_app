@@ -45,6 +45,16 @@ export const usePackageStore = defineStore('package', {
       }
     },
 
+    async updatePackage(id, packageData) {
+      try {
+        const response = await packageApi.updatePackage(id, packageData)
+        return response
+      } catch (error) {
+        console.error('更新软件包信息失败:', error)
+        throw error
+      }
+    },
+
     async deletePackage(id) {
       try {
         const res = await packageApi.deletePackage(id); // 添加 await
@@ -53,6 +63,19 @@ export const usePackageStore = defineStore('package', {
         console.error('删除软件包失败:', error);
         throw error; // 抛出错误以便在 .catch 中处理
       }
+    },
+
+    async getPackage(id) {
+      try {
+        const res = await packageApi.getPackageById(id); // 添加 await
+        // console.log(res,res.package,res['package'])
+        return res.package; // 返回 Promise 的结果
+      } catch (error) {
+        console.error('查询软件包失败:', error);
+        throw error; // 抛出错误以便在 .catch 中处理
+      }
     }
+
+
   }
 })

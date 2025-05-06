@@ -23,34 +23,32 @@
               <th>上传时间</th>
               <th>描述</th>
               <!-- <th>是否稳定</th> -->
-              <th style="min-width:200px;">操作</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>                 
             <tr class="table-tr" v-for="pkg in packageStore.packages" :key="pkg.id">
               <td style="display: flex;gap:10px;">
                 <img :src="pkg.icon.url" alt="应用图标" class="table-icon" />
-                <div>
-                  <div class="halfline">{{pkg.name}}</div>
+                <div class="td-content">
+                  <div class="halfline" :title="pkg.name">{{pkg.name}}</div>
                   <div class="halfline" style="color:#8e8e8e;">版本号：{{ pkg.version }}  {{ pkg.ar ? "架构：" + pkg.ar : "" }}</div>
                 </div>
               </td>
-              <td>{{ pkg.package_name }}</td>
-              <td>{{ (pkg.size / 1024 / 1024).toFixed(2) }} MB</td>
-              <td>{{ pkg.create_time}}</td>
-              <td>
-                <div v-if="pkg.comment" class="commentcol s-hand"  >{{ pkg.comment }}</div>
-                <div v-else class="commentcol s-hand" >-</div>
+              <td style="max-width: 100px;" class="text-truncate" :title="pkg.package_name">{{ pkg.package_name }}</td>
+              <td class="text-truncate">{{ (pkg.size / 1024 / 1024).toFixed(2) }} MB</td>
+              <td class="text-truncate">{{ formatDateTime(pkg.create_time)}}</td>
+              <td style="min-width: 100px">
+                <div v-if="pkg.comment" class="commentcol" :title="pkg.comment" >{{ pkg.comment }}</div>
+                <div v-else class="commentcol" >-</div>
               </td>
-              <!-- <td>
-                <input type="checkbox">
-              </td> -->
-              <td>
-
+              <!-- <td style="width:200px">
                 
-                <icon-wrapper class="table-do"  iconName="Download" theme="filled" :strokeWidth='3' size="20" />
+              </td> -->
+              <td style="min-width: 150px">
+                <icon-wrapper class="table-do"  iconName="Download" theme="filled" :strokeWidth='3' size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
-                <icon-wrapper class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper @click="openQrCode(pkg)" class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
                 <!-- <a href="#"  class="mybtn" >二维码</a> -->
                 <icon-wrapper @click="openEditor(pkg)" class="table-do"  iconName="Editor" theme="outline" :strokeWidth='3' size="20" />
                 <icon-wrapper @click="deletePackage(pkg.id)" class="table-do"  iconName="Delete" theme="outline" :strokeWidth='3' size="20" />
@@ -114,20 +112,66 @@
       </div>
     </div>
   </my-modal>
-  <my-modal :show="modal_show.editor_show" :modeless="false"  modalKey="editor_show">{{curPackage}}</my-modal>
+  <my-modal :show="modal_show.editor_show" :modeless="false"  modalKey="editor_show">
+    <div class="au-layout">
+      <div class="rows" style="gap: 10px">
+        <div class="cols s12">
+          <label>文件名:</label>
+          <input class="editor_name" type="text" v-model="curPackage.name"/>
+        </div>
+        <div class="cols s12">
+          <label>描述:</label>
+        </div>
+        <div class="cols s12">
+          <textarea class="eidtor_comment" rows="5" type="text" v-model="curPackage.comment"></textarea>
+        </div>
+        <div class="cols s12 end">
+          <input type="button" value="取消" style="margin-right:5px" @click="modal_show.editor_show = false">
+          <input type="button" :class="{'fill':true,'unable':!curPkgIsUpdate}" @click="updatePackageInfo()" value="确认" >
+        </div>
+      </div>
+    </div>
+  </my-modal>
+  <my-modal width="280" :show="modal_show.qrCode_show" :modeless="false" modalKey="qrCode_show">
+    <div class="au-layout">
+      <div class="rows center">
+        <div class="cols s12 center">
+          <div class="qr_modal_info">
+              <img class="table-icon left" :src="curPackage.icon.url" alt="应用图标" />
+              <div class="right">
+                <div class="halfline" style="height:24px;line-height: 24px">{{curPackage.name}}</div>
+                <div class="halfline" style="height:24px;line-height: 24px;color:#8e8e8e;font-size: 12px">版本号：{{ curPackage.version }}</div>
+              </div>
+          </div>
+        </div>
+        <div class="cols s12 center">
+          <au-qrcode :qrValue="qrValue" :size="150" level="Q" :logo="{src:curPackage.icon.url,width:40,height:40,margin:0}"/>
+        </div>
+        <div class="cols s12 center" style="color:#8e8e8e;font-size: 12px;margin-top: 1rem;">
+          扫描上面二维码，到移动端下载
+        </div>
+        <!-- <div class="cols">{{qrValue}}</div> -->
+      </div>
+    </div>
+  </my-modal>
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch} from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, computed} from 'vue';
 import { usePackageStore } from '@/stores/packageStore';
 import { useOssStore } from '@/stores/ossStore';
 import { ossMultipartUpload } from '@/api/ossApi';
 import { parseAPK } from '@/assets/js/utils'
+
+
+
 const packageStore = usePackageStore()
 
 const ossStore = useOssStore()
 
 export default {
+
+  
   setup() {
     const appTypeList = ref(['学生端','教师端','家长端','运营客户端','识别客户端','优课优学'])
     const appNameInfo = {
@@ -145,7 +189,7 @@ export default {
     const arList = ref(['全部'])
     var filterPram = {appname: '0',system:null,page:1,per_page:10}
     // const packages = ref([])
-    const modal_show = ref({fileUpload_show:false,editor_show:false})
+    const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
     const file = ref(null)
 
     const progress = ref(0)
@@ -157,6 +201,13 @@ export default {
 
     //待编辑的package
     const curPackage = ref(null)
+
+    const curPkgIsUpdate = computed(()=>{
+      return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
+    })
+
+    const qrValue = ref("")
+
 
     onMounted(() => {
       packageStore.fetchPackages(filterPram)
@@ -331,8 +382,55 @@ export default {
     }
 
     const openEditor = ( pkg ) => {
-      curPackage.value = pkg
+      curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,origin:{name:pkg.name,comment:pkg.comment}}
       modal_show.value.editor_show=true;
+    }
+
+    const formatDateTime = (dateStr) => {
+      const date = new Date(dateStr);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const seconds = String(date.getSeconds()).padStart(2, "0");
+      return `${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+    }
+
+    const updatePackageInfo = () => {
+
+      const updateData = {
+        name:curPackage.value.name == curPackage.value.origin.name ? null:curPackage.value.name, 
+        comment:curPackage.value.comment == curPackage.value.origin.comment ? null:curPackage.value.comment
+      }
+
+      packageStore.updatePackage(curPackage.value.id, updateData).then(()=>{
+        modal_show.value.editor_show = false
+        packageStore.fetchPackages(filterPram)
+      }).catch(error => {
+        console.error('修改失败',error)
+      })
+
+      console.log(updateData)
+    }
+
+    const downloadFile = (oss_key, fileName) => {
+      ossStore.getDownloadUrl(oss_key).then(rst=>{
+        // console.log(rst.url)
+        const a = document.createElement('a');
+        a.href = rst.url;
+        a.download = fileName; // 设置下载文件名（默认 app.apk）
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      })
+    }
+
+    const openQrCode = (pkg) => {
+      curPackage.value = pkg
+      console.log(curPackage.value)
+      modal_show.value.qrCode_show = true
+      qrValue.value = `http://192.168.0.119:8080/#/AppManage/app-detail/${curPackage.value.id}`
     }
 
 
@@ -352,7 +450,13 @@ export default {
       cancelUpload,
       clearFile,
       deletePackage,
-      openEditor
+      openEditor,
+      formatDateTime,
+      curPkgIsUpdate,
+      updatePackageInfo,
+      downloadFile,
+      qrValue,
+      openQrCode
     };
   }
 };
@@ -363,17 +467,28 @@ export default {
   .filter-select {
     margin-right: 0.8rem;
     width: 100px;
+    
   }
   .table-content {
     background: var(--box-bgc);
     padding: 10px;
     border-radius: 10px;
     border: var(--box-border);
+    overflow: auto;
   }
   table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    min-width: 600px;
+  }
+ 
+  .table-fixed {
+    position: absolute;
+    right: 0;
+    background: var(--box-bgc);
+    width:200px;
+    z-index: 9;
   }
 
   /*表格*/
@@ -394,7 +509,7 @@ export default {
 
   .commentcol {
     display:-webkit-box;
-    max-width: 140px;
+    max-width: 200px;
     line-height: 25px;
     overflow: hidden;
     text-overflow:ellipsis;
@@ -414,14 +529,17 @@ export default {
       font-size: 14px;
   }
 
-  table tbody tr td .halfline {
+  .halfline {
     height: 25px;
     line-height: 25px;
+    white-space: nowrap; 
+    overflow: hidden;         /* 隐藏超出部分 */
+    text-overflow: ellipsis;  /* 超出时显示省略号 */
   }
 
-  .table>:not(caption)>*>*{
+  /*.table>:not(caption)>*>*{
     background-color: transparent!important;
-  }
+  }*/
   /*修改table-hover颜色*/
   .table-tr:hover { 
     background-color: var(--card-hightlight);
@@ -499,6 +617,7 @@ export default {
     border-radius: 8px;
     /* box-shadow: var(--box-shadow); */
     border: var(--box-border);
+    flex-shrink: 0;
   }
 
   /* 定义旋转动画 */
@@ -515,6 +634,39 @@ export default {
 .rotating-element {
   animation: spin 3s linear infinite;
 }
+.eidtor_comment, .editor_name{
+  width: 100%;
+}
 
+label {
+  white-space: nowrap;
+  margin-right: 10px;
+}
+
+.qr_modal_info {
+  width: 80%;
+  display: flex;
+  gap:10px;
+  font-size: 14px;
+  padding-bottom: 1rem;
+  border-bottom: var(--box-border);
+  margin-bottom: 1.8rem;
+}
+
+.qr_modal_info .left{
+  width:48px;
+  height: 48px;
+  
+}
+
+.qr_modal_info .right{
+  flex-grow: 1; /* 撑满剩余空间 */
+  min-width: 0; /* 防止内容溢出（可选） */
+}
+
+.td-content{
+  flex-grow: 1; /* 撑满剩余空间 */
+  min-width: 0;
+}
 
 </style>

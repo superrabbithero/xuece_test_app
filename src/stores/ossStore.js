@@ -11,6 +11,11 @@ export const useOssStore = defineStore('oss', {
       const res = await ossApi.getStsToken()
       // console.log(res)
       this.stsToken = res
-    }
+    },
+
+    async getDownloadUrl(oss_key) {
+      const url = await ossApi.getUrl(oss_key)
+      return url
+    } 
   }
 })

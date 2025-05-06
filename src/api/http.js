@@ -2,7 +2,8 @@ import axios from 'axios'
 
 const http = axios.create({
   // baseURL: process.env.API_BASE_URL || '/api', // Webpack 环境变量
-  baseURL: 'http://localhost:5000/api', // Flask后端地址
+  // baseURL: 'http://192.168.31.123:5000/api', // Flask后端地址
+  baseURL: 'http://192.168.0.119:5000/api',
   timeout: 10000
 })
 

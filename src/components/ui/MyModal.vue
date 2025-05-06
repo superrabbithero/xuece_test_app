@@ -1,7 +1,7 @@
 <template>
   <div class="overlay" v-show="show && !modeless"></div>
   <transition name="modal-slide">
-    <div class="modal" ref="modal" v-if="show">     
+    <div class="modal" :style="{width:`${width}px`}" ref="modal" v-if="show">     
       <div :class="{'modal-bar':true,'draged':dragable}" @mousedown="dragdown($event)"  @mouseup="dragup">
         <div class="modal-close" @click="close()">
         </div>
@@ -33,6 +33,10 @@ export default({
       type: Boolean,
       required: false,
       default: true
+    },
+    width: {
+      type: Number,
+      default : 400
     }
   },
   data(){

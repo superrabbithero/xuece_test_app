@@ -17,5 +17,18 @@ export default {
   // 删除包
   deletePackage(id) {
     return http.delete(`/packages/${id}`)
+  },
+
+  //更新包名和描述
+  updatePackage(id, data) {
+    return http.put(`/packages/${id}`, data,{
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+  },
+  //精确查找安装包信息
+  getPackageById(id) {
+    return http.get(`/packages/${id}`)
   }
 }

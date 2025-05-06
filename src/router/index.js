@@ -20,6 +20,16 @@ const routes = [
             title: '答题卡生成',
             footerHidden: true
         }
+    },
+    {
+        path: '/AppManage/app-detail/:id',
+        name: '应用详情',
+        component: () => import("@/components/AppDetail"),
+        props:true,
+        meta:{
+            title: '应用详情',
+            footerHidden: true
+        }
     }
 ]
 

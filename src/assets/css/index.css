@@ -130,7 +130,7 @@ img {
 }
 
 .container {
-    margin: 20px 30px;
+    margin: 10px 0;
     padding: 10px 20px ;
     border: var(--box-border);
     border-radius:12px;
@@ -652,6 +652,13 @@ input[type="button"].fill:active {
     background-color: #c49321; 
     color: #bbb19b;
 }
+
+input[type="button"].unable{
+    opacity: 0.6;       /* 降低透明度 */
+    cursor: not-allowed; /* 鼠标显示禁用图标 */
+    pointer-events: none; /* 阻止鼠标事件（部分浏览器支持） */
+}
+
 
 input[type="button"]:focus{
     outline:none;
@@ -1214,6 +1221,12 @@ textarea:active, textarea:focus{
   margin-bottom: 0.1rem; /* 每个列表项之间的间距 */
   font-size: 1rem; /* 修改字体大小 */
 }
+.text-truncate{
+    white-space: nowrap;      /* 禁止换行 */
+    overflow: hidden;         /* 隐藏超出部分 */
+    text-overflow: ellipsis;  /* 超出时显示省略号 */
+}
+
 
 label {
     font-family: SmileySans-Oblique;

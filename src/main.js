@@ -29,3 +29,5 @@ app.config.globalProperties.$constants = {
 };
 
 app.mount('#app')
+
+
