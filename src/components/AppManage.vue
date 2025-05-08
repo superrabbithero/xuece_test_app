@@ -69,7 +69,7 @@
     <div class="au-layout">
       <div class="rows" style="gap: 10px">
         <div class="cols s12">
-          <au-file-input accept=".ipa, .apk" v-model="file"></au-file-input>
+          <au-file-input accept=".ipa, .apk, .exe" v-model="file"></au-file-input>
         </div>
         <div class="cols s12">
           <div v-if="isParsing || packageInfo" class="file-info au-layout">
@@ -222,25 +222,41 @@ export default {
       file,
       (newFile, oldFile)=>{
         parsePackage()
-        console.log('file变化:', newFile, '→', oldFile);
+        console.log('file变化:', oldFile, '→', newFile);
       }
     )
 
     const parsePackage = () => {
-      if (file.value && (file.value.name.endsWith('.apk') || file.value.name.endsWith('.ipa'))){
-        isParsing.value = true
-        parseAPK(file.value).then(rst => {
-          isParsing.value = false
+      if (file.value){
+        if(file.value.name.endsWith('.apk') || file.value.name.endsWith('.ipa')){
+          isParsing.value = true
+          parseAPK(file.value).then(rst => {
+            isParsing.value = false
+            packageInfo.value = {
+              fileName : rst.name,
+              packageName : rst.packageName,
+              size : rst.size,
+              version : rst.versionName,
+              ar : rst.ar,
+              icon: rst.icon
+            }
+            console.log(packageInfo)
+          })
+        }else if(file.value.name.endsWith('.exe')){
+          console.log(file.value)
           packageInfo.value = {
-            fileName : rst.name,
-            packageName : rst.packageName,
-            size : rst.size,
-            version : rst.versionName,
-            ar : rst.ar,
-            icon: rst.icon
+            fileName : file.value.name,
+            packageName : null,
+            size : file.value.size,
+            version : null,
+            ar : null,
+            icon: null
           }
-          console.log(packageInfo)
-        })
+        }else{
+          console.log("仅支持上传.apk、.ipa、.exe文件")
+        }
+      }else{
+        console.log("没有找到文件")
       }
     }
 

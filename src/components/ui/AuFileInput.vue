@@ -40,9 +40,13 @@ export default {
     const handleDrop = (event) => {
       isFileOver.value = false
       event.preventDefault();
-      file.value = event.dataTransfer.files[0]
-
-      emit('update:modelValue', file.value)
+      if(isFileNameValid(event.dataTransfer.files[0].name,props.accept)){
+        file.value = event.dataTransfer.files[0]
+        emit('update:modelValue', file.value)
+      }else{
+        console.log("文件不符合要求")
+      }
+      
     }
 
     const handleDragEnter = () => {
@@ -60,6 +64,51 @@ export default {
     const clearFile = () => {
       file.value = null
       emit('update:modelValue', null);
+    }
+
+    /**
+     * 检查文件名是否符合 accept 规则
+     * @param {string} fileName - 文件名（如 "example.pdf"）
+     * @param {string} accept - accept 规则（如 ".pdf,image/*"）
+     * @returns {boolean}
+     */
+    function isFileNameValid(fileName, accept) {
+      if (!accept) return true; // 如果未设置 accept，则默认允许
+
+      const acceptRules = accept.split(',').map(rule => rule.trim());
+      const fileExtension = fileName.split('.').pop().toLowerCase();
+
+      return acceptRules.some(rule => {
+        // 规则是扩展名（如 ".pdf"）
+        if (rule.startsWith('.')) {
+          return fileExtension === rule.substring(1).toLowerCase();
+        }
+        // 规则是 MIME 类型（如 "image/*"）
+        else if (rule.includes('/*')) {
+          const mimeCategory = rule.split('/')[0].toLowerCase();
+          const fileMime = getFileMimeType(fileName); // 需要实现 MIME 类型推断
+          return fileMime.startsWith(mimeCategory);
+        }
+        // 规则是具体 MIME 类型（如 "application/pdf"）
+        else {
+          const expectedMime = rule.toLowerCase();
+          const fileMime = getFileMimeType(fileName);
+          return fileMime === expectedMime;
+        }
+      });
+    }
+
+    // 示例：从文件名推断 MIME 类型（简化版）
+    function getFileMimeType(fileName) {
+      const extension = fileName.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        png: 'image/png',
+        mp3: 'audio/mp3',
+        // 可扩展更多类型...
+      };
+      return mimeTypes[extension] || 'application/octet-stream';
     }
 
 

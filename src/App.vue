@@ -51,10 +51,9 @@
       <div class="footer-link">
       </div>
       <div class="footer-bar">
-        <div>©2023 - 2024 By SuperRabbitHero</div>
         <div>
-          <!-- <svg-icon name="helloworld" size=35 @click="goto('/helloworld')"></svg-icon> -->
-          <!-- <svg-icon name="list01" @click="goto('/post/更新文档')"></svg-icon> -->
+          <p> ©2023 - 2025 By SuperRabbitHero </p>
+          <a href="https://beian.miit.gov.cn" target="_blank">苏ICP备2025178576号-1</a>
         </div>
       </div>
     </div>
@@ -275,9 +274,6 @@ export default {
   height: 80px;
   border-top: var(--box-border);
 
-/*  position: fixed;*/
-/*  z-index: 998;*/
-/*  margin-top: 20px;*/
   width: 100%;
   width: fill-available;
   display: flex;
@@ -285,13 +281,39 @@ export default {
   align-items: center;
 }
 
-.footer-bar > div:nth-child(2) > *{
+/*.footer-bar > div:nth-child(2) > *{
   cursor: pointer;
   margin-left: 5px;
 }
 .footer-bar > div > *:hover{
   color:#ffc848;
+}*/
+
+.footer-bar > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  align-items: flex-start;
 }
+
+.footer-bar a {
+  font-size: 12px;
+  text-decoration: none;
+  transition: 0.3s;
+  color: inherit;
+}
+
+.footer-bar a:hover {
+  color:#ffc848;
+}
+
+.footer-bar p {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  transition: 0.3s;
+}
+
 
 
 /*.logo {
