@@ -21,7 +21,7 @@ export const usePackageStore = defineStore('package', {
     async createPackage(packageData) {
       try {
         // 确保包含所有必填字段
-        const requiredFields = ['version', 'name', 'size', 'system', 'package_name', 'oss_key']
+        const requiredFields = ['version', 'name', 'size', 'system', 'oss_key']
         const missingFields = requiredFields.filter(field => !packageData[field])
         
         if (missingFields.length > 0) {

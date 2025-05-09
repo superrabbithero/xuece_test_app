@@ -29,13 +29,13 @@
           <tbody>                 
             <tr class="table-tr" v-for="pkg in packageStore.packages" :key="pkg.id">
               <td style="display: flex;gap:10px;">
-                <img :src="pkg.icon.url" alt="应用图标" class="table-icon" />
+                <img :src="pkg.icon?.url || getPkgUrl(pkg.appname)" alt="应用图标" class="table-icon" />
                 <div class="td-content">
                   <div class="halfline" :title="pkg.name">{{pkg.name}}</div>
                   <div class="halfline" style="color:#8e8e8e;">版本号：{{ pkg.version }}  {{ pkg.ar ? "架构：" + pkg.ar : "" }}</div>
                 </div>
               </td>
-              <td style="max-width: 100px;" class="text-truncate" :title="pkg.package_name">{{ pkg.package_name }}</td>
+              <td style="max-width: 100px;" class="text-truncate" :title="pkg.package_name">{{ pkg.package_name || '-' }}</td>
               <td class="text-truncate">{{ (pkg.size / 1024 / 1024).toFixed(2) }} MB</td>
               <td class="text-truncate">{{ formatDateTime(pkg.create_time)}}</td>
               <td style="min-width: 100px">
@@ -48,7 +48,7 @@
               <td style="min-width: 150px">
                 <icon-wrapper class="table-do"  iconName="Download" theme="filled" :strokeWidth='3' size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
-                <icon-wrapper @click="openQrCode(pkg)" class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper v-if="pkg.icon?.url" @click="openQrCode(pkg)" class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
                 <!-- <a href="#"  class="mybtn" >二维码</a> -->
                 <icon-wrapper @click="openEditor(pkg)" class="table-do"  iconName="Editor" theme="outline" :strokeWidth='3' size="20" />
                 <icon-wrapper @click="deletePackage(pkg.id)" class="table-do"  iconName="Delete" theme="outline" :strokeWidth='3' size="20" />
@@ -76,7 +76,7 @@
             <div v-if="isParsing">
               正在解析...
             </div>
-            <div v-else class="rows gutter-l">
+            <div v-else-if="packageInfo.packageName" class="rows gutter-l">
               <div class="package-icon cols s3">
                 <img :src="packageInfo.icon" alt="应用图标" style="width:80px;border-radius: 8px;" />
               </div>
@@ -92,6 +92,31 @@
                 </div>
                 <div class="package-other-info">
                   <div>{{packageInfo.version}} ({{packageInfo.ar}})</div>
+                  <icon-wrapper v-if="progress <= 0" class="table-do"  iconName="DeleteOne" theme="outline" :strokeWidth='3' size="16" @click="clearFile"/>
+                </div>
+              </div>
+            </div>
+            <div v-else class="rows gutter-l">
+              <div class="package-icon cols s3">
+                <img :src="pePackageIconUrl" alt="应用图标" style="width:80px;border-radius: 8px;" />
+              </div>
+              <div class="package-info cols s9" style="height:auto">
+                <div class="file-name" :title="packageInfo.fileName">
+                  {{packageInfo.fileName}}
+                </div>
+                <div class="appname" >
+                  <input type="radio" id="packageName1" name="appname" value="3" v-model="packageInfo.appName">
+                  <label for="packageName1">识别</label>
+                  <input type="radio" id="packageName2" name="appname" value="4" v-model="packageInfo.appName" >
+                  <label for="packageName2">运营</label>
+                  <input type="radio" id="packageName3" name="appname" value="5" v-model="packageInfo.appName">
+                  <label for="packageName3">优课</label>
+                </div>
+                <div class="package-size">
+                  {{ (packageInfo.size / 1024 / 1024).toFixed(2) }} MB
+                </div>
+                <div class="package-other-info">
+                  <label>版本号: <input type="text" placeholder="请输入版本号" v-model="packageInfo.version" /></label>
                   <icon-wrapper v-if="progress <= 0" class="table-do"  iconName="DeleteOne" theme="outline" :strokeWidth='3' size="16" @click="clearFile"/>
                 </div>
               </div>
@@ -156,8 +181,8 @@
   </my-modal>
 </template>
 
-<script>
-import { ref, onMounted, onBeforeUnmount, watch, computed} from 'vue';
+<script >
+import { ref, onMounted, watch, computed} from 'vue';
 import { usePackageStore } from '@/stores/packageStore';
 import { useOssStore } from '@/stores/ossStore';
 import { ossMultipartUpload } from '@/api/ossApi';
@@ -173,7 +198,7 @@ export default {
 
   
   setup() {
-    const appTypeList = ref(['学生端','教师端','家长端','运营客户端','识别客户端','优课优学'])
+    const appTypeList = ref(['学生端','教师端','家长端','识别','运营下载','优课优学'])
     const appNameInfo = {
       'com.uni.stuxueceapp':{appName:0,system:'ios'},
       'cn.unisolution.onlineexamstu':{appName:0, system:'android'},
@@ -206,6 +231,39 @@ export default {
       return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
     })
 
+    const pePackageIconUrl = computed(()=>{
+      if(packageInfo.value.appName){
+        let appName = packageInfo.value.appName
+        if(appName == 3){
+          return require("@/assets/imgs/icons/scan.png")
+        }else if(appName == 4){
+          return require("@/assets/imgs/icons/download.png")
+        }else if(appName == 5){
+          return require("@/assets/imgs/icons/youke.png")
+        }else{
+          return null
+        }
+      }else{
+        return null
+      }
+    })
+
+    const getPkgUrl = computed(() => {
+      return (appName) => {
+        console.log(appName)
+        if(appName == 3){
+          return require("@/assets/imgs/icons/scan.png")
+        }else if(appName == 4){
+          return require("@/assets/imgs/icons/download.png")
+        }else if(appName == 5){
+          return require("@/assets/imgs/icons/youke.png")
+        }else{
+          return null
+        }
+      }
+      
+    })
+
     const qrValue = ref("")
 
 
@@ -214,9 +272,7 @@ export default {
       packageStore.fetchPackages(filterPram)
     });
 
-    onBeforeUnmount(() => {
-
-    });
+    
 
     watch(
       file,
@@ -246,11 +302,11 @@ export default {
           console.log(file.value)
           packageInfo.value = {
             fileName : file.value.name,
-            packageName : null,
+            appName : 3, //默认识别客户端
             size : file.value.size,
             version : null,
             ar : null,
-            icon: null
+            icon: null,
           }
         }else{
           console.log("仅支持上传.apk、.ipa、.exe文件")
@@ -289,31 +345,30 @@ export default {
             return
         }
 
-        
       // app检查文件类型
-      if (!isIpaOrApkFile(file.value)) {
+      if (!isIpaOrApkOrPeFile(file.value)) {
           file.value = null;
           console.log(`error:请选择正确的ipa或apk文件`)
           return
       }
       // 判断包名是否正确
-      if(!appNameInfo[packageInfo.value.packageName]){
-        console.log('error:不存在的报名，请检查')
+      if(packageInfo.value.packageName && !appNameInfo[packageInfo.value.packageName]){
+        console.log('error:不存在的包名，请检查')
         return
       }
         
 
       const packageInfoJson = {
-        'appname': appNameInfo[packageInfo.value.packageName].appName,
+        'appname': packageInfo.value.appName || appNameInfo[packageInfo.value.packageName].appName,
         'version': packageInfo.value.version,
         'name': packageInfo.value.fileName,
         'size': packageInfo.value.size,
-        'system': appNameInfo[packageInfo.value.packageName].system,
+        'system': appNameInfo[packageInfo.value.packageName]?.system || 'win',
         'create_time': null,
         'comment': '',
-        'ar': packageInfo.value.ar,
+        'ar': packageInfo.value.ar || 'x86',
         'status': 0,
-        'package_name': packageInfo.value.packageName,
+        'package_name': packageInfo.value.packageName || '',
         'oss_key' : null,
         'icon' : packageInfo.value.icon
       }
@@ -378,9 +433,9 @@ export default {
       }
     }
 
-    const isIpaOrApkFile = (file) => {
+    const isIpaOrApkOrPeFile = (file) => {
       // 判断文件类型是否为IPA或APK
-      const allowedExtensions = [".ipa", ".apk"];
+      const allowedExtensions = [".ipa", ".apk", ".exe"];
       const fileExtension = file.name.substr(file.name.lastIndexOf(".")).toLowerCase();
       return allowedExtensions.includes(fileExtension);
     }
@@ -473,7 +528,9 @@ export default {
       updatePackageInfo,
       downloadFile,
       qrValue,
-      openQrCode
+      openQrCode,
+      pePackageIconUrl,
+      getPkgUrl
     };
   }
 };
@@ -684,6 +741,22 @@ label {
 .td-content{
   flex-grow: 1; /* 撑满剩余空间 */
   min-width: 0;
+}
+
+.appname {
+  gap: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.appname input{
+  width: 16px;
+  height: 16px;
+}
+
+.appname label{
+  height: 16px;
+  line-height: 16px;
 }
 
 </style>
