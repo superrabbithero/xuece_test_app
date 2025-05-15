@@ -266,6 +266,7 @@ img {
 
 body{
   background-color: var(--content-bgc);
+  margin: 0;
 }
 /*
 body > * {

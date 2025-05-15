@@ -9,13 +9,13 @@ export const useOssStore = defineStore('oss', {
   actions: {
     async getStsToken() {
       const res = await ossApi.getStsToken()
-      // console.log(res)
-      this.stsToken = res
+      console.log(res)
+      this.stsToken = res.data
     },
 
     async getDownloadUrl(oss_key) {
       const url = await ossApi.getUrl(oss_key)
-      return url
+      return url.data
     } 
   }
 })
