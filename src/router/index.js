@@ -30,6 +30,17 @@ const routes = [
             title: '应用详情',
             footerHidden: true
         }
+    },
+    {
+        path: '/login',
+        name: '登录',
+        component: () => import("@/components/LoginPage"),
+        props:true,
+        meta:{
+            title: '应用详情',
+            footerHidden: true,
+            headerHidden: true
+        }
     }
 ]
 
