@@ -27,17 +27,23 @@
 import { ref } from 'vue';
 import { useUserStore } from '@/stores/userStore'
 import router from '@/router'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 const userData = ref({user_name:"",password:""})
+
 const userStore = useUserStore()
 
 const handleLogin = () => {
   userStore.login(userData.value).then((rst)=>{
-    const redirect = router?.query?.redirect
-    // console.log(rst)
+
+    
+    const redirect = route?.query?.redirect
+    console.log(route)
     // 跳转逻辑
     if (rst.code == 200){
-      router.replace(redirect ? decodeURIComponent(redirect) : '/dashboard')
+      router.replace(redirect ? decodeURIComponent(redirect) : '/')
     }else{
       console.log(rst.code)
     }

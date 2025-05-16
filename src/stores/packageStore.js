@@ -9,12 +9,13 @@ export const usePackageStore = defineStore('package', {
   
   actions: {
     async fetchPackages(params) {
+
       const res = await packageApi.getPackages(params)
       console.log(res)
-      this.packages = res.packages
+      this.packages = res?.data?.packages
       this.pagination = {
-        total: res.total,
-        pages: res.pages
+        total: res?.data?.total,
+        pages: res?.data?.pages
       }
     },
     
@@ -69,7 +70,7 @@ export const usePackageStore = defineStore('package', {
       try {
         const res = await packageApi.getPackageById(id); // 添加 await
         // console.log(res,res.package,res['package'])
-        return res.package; // 返回 Promise 的结果
+        return res.data.package; // 返回 Promise 的结果
       } catch (error) {
         console.error('查询软件包失败:', error);
         throw error; // 抛出错误以便在 .catch 中处理

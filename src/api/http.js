@@ -40,23 +40,34 @@ http.interceptors.response.use(
         localStorage.removeItem('token')
         
         // 2. 跳转登录页
-        router.replace({
-          path: '/login',
-          query: { 
-            redirect: router.currentRoute.fullPath // 携带当前路径用于登录后回跳
-          }
-        })
+        console.log(router.currentRoute.value.path)
+        const isLoginPage = router.currentRoute.value.path === '/login';
+
+        //如果是登录页面则不跳转
+        if(!isLoginPage){
+          router.replace({
+            path: '/login',
+            query: { 
+              redirect: router.currentRoute.value.fullPath // 携带当前路径用于登录后回跳
+            }
+          })
+        }
+        
         
         // 3. 返回统一错误信息
         return Promise.resolve({
           code: 401,
-          message: '认证失效，请重新登录',
+          message: 'token有误，请重新登录',
           handled: true
         })
       }
       
       // 其他错误返回服务器响应数据
-      return Promise.reject(error.response.data || error.response)
+      return Promise.resolve({
+        code: error.response.status,
+        message: error.response.data.message,
+        handled: true
+      })
     }
     
     // 处理网络错误等没有response的情况

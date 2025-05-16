@@ -17,16 +17,21 @@ export const useUserStore = defineStore('user', {
         const missingFields = requiredFields.filter(field => !userData[field])
         
         if (missingFields.length > 0) {
-          throw new Error(`缺少必填字段: ${missingFields.join(', ')}`)
+          // throw new Error(`缺少必填字段: ${missingFields.join(', ')}`)
+          return {
+            code: 400,
+            success:false,
+            message:`缺少必填字段: ${missingFields.join(', ')}`,
+            data:null
+          }
         }
         
         const response = await userApi.login(userData)
 
-        console.log('@@@@',response.data.token)
-
-        this.token = response.data.token
+        this.token = response?.data?.token
     
         localStorage.setItem('token', this.token)
+        console.log(response)
         return response
       } catch (error) {
         console.error('登录失败:', error)
