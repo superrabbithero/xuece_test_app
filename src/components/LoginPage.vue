@@ -44,8 +44,9 @@ const handleLogin = () => {
     // 跳转逻辑
     if (rst.code == 200){
       router.replace(redirect ? decodeURIComponent(redirect) : '/')
-    }else{
-      console.log(rst.code)
+    }else if(rst.code == 402 || rst.code == 404){
+      userData.value.password = ""
+      console.log("用户名或密码错误")
     }
       
   })
