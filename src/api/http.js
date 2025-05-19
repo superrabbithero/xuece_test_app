@@ -35,7 +35,7 @@ http.interceptors.response.use(
   error => {
     if (error.response) {
       // 401未授权错误处理
-      if (error.response.status === 401) {
+      if (error.response.status === 401 || error.response.status === 403) {
         // 1. 清除失效token
         localStorage.removeItem('token')
         
