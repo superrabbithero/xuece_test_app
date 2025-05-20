@@ -63,6 +63,9 @@ export async function uploadToOSS(file, path, stsToken) {
 export async function ossMultipartUpload(file, path, stsToken, options = {}) {
   try {
     const client = initOSSClient(stsToken);
+
+    
+
     const fileName = `${path}${Date.now()}_${file.name}`; // 生成唯一文件名
 
     console.log('开始分片上传:', fileName);

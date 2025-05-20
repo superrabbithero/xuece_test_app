@@ -1,7 +1,7 @@
 <template>
-  <div @click="showToast('123')">toast</div>
   <transition name="toast-fade">
-    <div v-if="visible" class="toast" :class="`toast-${type}`">
+    <div v-if="visible" class="toast">
+      <icon-wrapper :class="`icon-${type}`" :iconName="iconName[type]" theme="filled" :strokeWidth='5' size="16"/>
       {{ message }}
     </div>
   </transition>
@@ -13,7 +13,8 @@ import { ref ,defineExpose} from 'vue'
 // 响应式状态
 const visible = ref(false)
 const message = ref('')
-const type = ref('info')
+const iconName = ref({"info":"Info","warning":"Attention","success":"CheckOne","error":"CloseOne"})
+const type = ref('info') //info waring success error
 
 // 暴露给全局的方法
 const show = (msg, options = {}) => {
@@ -32,15 +33,46 @@ defineExpose({ show })
 <style scoped>
 .toast {
   position: fixed;
-  top: 20px;
+  top: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 24px;
-  background: #323232;
-  color: white;
-  border-radius: 4px;
-  z-index: 9999;
+  padding: 7px 15px;
+  font-size: 16px;
+  line-height: 20px;
+  /* height: 20px; */
+  border-radius: 15px;
+  
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 999;
+  border: var(--box-border);
+  color: var(--fontNormal);
+  background-color: var(--content-bgc);
 }
+
+.toast > .dot{
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+
+.icon-success {
+  color:#18d06e
+}
+
+.icon-info {
+  color:var(--fontNormal)
+}
+
+.icon-warning {
+  color:#faab12
+}
+
+.icon-error {
+  color:#f9565b
+}
+
 
 .toast-fade-enter-active,
 .toast-fade-leave-active {

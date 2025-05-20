@@ -373,7 +373,7 @@ const uploadFile = () => {
         file.value = null;
         console.log(`error:请上传文件`)
         // console.log(typeof toast )
-        toast('请上传文件', { type: 'error', duration: 1000 })
+        toast('请上传文件', { type: 'info', duration: 1000 })
         return
     }
 
@@ -414,6 +414,7 @@ const uploadFile = () => {
       packageStore.createPackage(packageInfoJson).then(() => {
         packageStore.fetchPackages(filterPram)
         clearFile()
+        modal_show.value.fileUpload_show = false
       }).catch(error => {
         console.error('上传失败', error);
       })
@@ -452,9 +453,11 @@ const ossUpload = async () => {
       }
     };
 
+    const path = process.env.NODE_ENV === 'development' ? 'test/packages/' : 'packages/'
+
     uploadResult.value = await ossMultipartUpload(
       file.value, 
-      'packages/', 
+      path, 
       ossStore.stsToken,
       options
     );
