@@ -58,79 +58,88 @@
       </div>
     </div>
 </div>
+<GlobalToast ref="toastRef"/>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted, onUnmounted, getCurrentInstance, provide } from 'vue'
+import { useRouter } from 'vue-router'
+import GlobalToast from '@/components/GlobalToast.vue'
 
-export default {
-  name: 'App',
-  data(){
-    return{
-      menuisshow:false,
-      isDark:false,
-      pagetitle:''
-    }
-  },
-  mounted() {
-    document.addEventListener("touchstart",function() {},false)
-    
-    if(localStorage.getItem('isDark')){
-      this.$constants.DARK = localStorage.getItem('isDark')==='false' ? false :true
-    }else{
-      localStorage.setItem('isDark',this.$constants.DARK)
-    }
-    if(this.$constants.DARK){
-      document.body.classList.add('dark')//黑夜模式时添加类名
-    }
-    if (process.env.NODE_ENV === 'production') {
-      console.log('当前是生产环境');
-    } else {
-        console.log('当前是开发环境');
-    }
-  },
-  unmounted() {
-    document.removeEventListener('click',this.closemenu)
-  },
-  methods:{
-    setHeaderVisibility(visible){
-      this.headerShow = visible;
-    },
-    goto(path){
-      this.$router.push(path)
-      this.menuisshow = false
-      document.documentElement.scrollTop = 0
-      document.removeEventListener('click',this.closemenu)
-    },
-    openmenu() {
-      if(!this.menuisshow){
-        this.menuisshow = true
-        document.addEventListener('click',this.closemenu);
-      }else{
-        this.menuisshow = false
-        document.removeEventListener('click',this.closemenu)
-      }
-      
-    },
-    closemenu(e){
-      const md = document.getElementById('menuicon')
-      if(!md.contains(e.target) && !this.$refs.menu.contains(e.target)){
-        if(this.menuisshow == true){
-          this.menuisshow = false
-          document.removeEventListener('click',this.closemenu)
-        }
-      }
-    },
+const { proxy } = getCurrentInstance()
+const router = useRouter()
 
-    async changeStyle(){
-      this.$constants.DARK = !this.$constants.DARK//点击切换模式
-      localStorage.setItem('isDark',this.$constants.DARK)
-      if(this.$constants.DARK){
-        document.body.classList.add('dark')//黑夜模式时添加类名
-      }else{
-        document.body.classList.remove('dark')//白天删除类名
-      }
-    },
+// 响应式数据
+const menuisshow = ref(false)
+const isDark = ref(proxy.$constants.DARK) // 使用全局默认值
+// const pagetitle = ref('')
+const headerShow = ref(true)
+const menu = ref(null)
+
+// 将toast方法provide给子组件
+const toastRef = ref(null)
+
+const showToast = (msg, option = {}) => {
+  toastRef.value?.show(msg,option)
+}
+// 将方法提供给所有子组件
+provide('toast', showToast)
+
+// 生命周期
+onMounted(() => {
+  document.addEventListener("touchstart", function() {}, false)
+  
+  if(localStorage.getItem('isDark')) {
+    const darkMode = localStorage.getItem('isDark') === 'true'
+    isDark.value = darkMode
+    proxy.$constants.DARK = darkMode // 同步到全局
   }
+  
+  if(isDark.value) {
+    document.body.classList.add('dark')
+  }
+  
+  console.log(`当前是${process.env.NODE_ENV === 'production' ? '生产' : '开发'}环境`)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closemenu)
+})
+
+// 方法
+const setHeaderVisibility = (visible) => {
+  headerShow.value = visible
+}
+
+const goto = (path) => {
+  router.push(path)
+  menuisshow.value = false
+  document.documentElement.scrollTop = 0
+  document.removeEventListener('click', closemenu)
+}
+
+const openmenu = () => {
+  menuisshow.value = !menuisshow.value
+  if(menuisshow.value) {
+    document.addEventListener('click', closemenu)
+  } else {
+    document.removeEventListener('click', closemenu)
+  }
+}
+
+const closemenu = (e) => {
+  const md = document.getElementById('menuicon') // 替换原来的 this.$refs.menu
+  if(!md?.contains(e.target) && !menu.value?.contains(e.target)) {
+    menuisshow.value = false
+    document.removeEventListener('click', closemenu)
+  }
+}
+
+const changeStyle = () => {
+  isDark.value = !isDark.value
+  proxy.$constants.DARK = isDark.value // 更新全局状态
+  localStorage.setItem('isDark', isDark.value)
+  document.body.classList.toggle('dark', isDark.value)
 }
 </script>
 

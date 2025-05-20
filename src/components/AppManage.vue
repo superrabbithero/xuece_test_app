@@ -9,7 +9,8 @@
         <au-select class="filter-select" :dataList="arList" @change="changeAr"></au-select>
       </div>
       <div class="cols">
-        <input type="button" class="fill" value="添加应用" @click="modal_show.fileUpload_show = true"/>
+        <input v-if="isLogin" type="button" class="fill" value="添加应用" @click="modal_show.fileUpload_show = true"/>
+        <input v-else type="button" title="需登陆后才能上传和编辑文件" class="fill" @click="toPage('/login')" value="登 录"/>
       </div>
     </div>
     <div class="rows table-content">
@@ -22,11 +23,12 @@
               <th>大小</th>
               <th>上传时间</th>
               <th>描述</th>
-              <!-- <th>是否稳定</th> -->
+              <!-- <th>环境</th> -->
               <th>操作</th>
             </tr>
           </thead>
-          <tbody>                 
+          <tbody>
+            <div v-show="packageStore.isLoading">更新中请稍候</div>                 
             <tr class="table-tr" v-for="pkg in packageStore.packages" :key="pkg.id">
               <td style="display: flex;gap:10px;">
                 <img :src="pkg.icon?.url || getPkgUrl(pkg.appname)" alt="应用图标" class="table-icon" />
@@ -50,8 +52,8 @@
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
                 <icon-wrapper v-if="pkg.icon?.url" @click="openQrCode(pkg)" class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
                 <!-- <a href="#"  class="mybtn" >二维码</a> -->
-                <icon-wrapper @click="openEditor(pkg)" class="table-do"  iconName="Editor" theme="outline" :strokeWidth='3' size="20" />
-                <icon-wrapper @click="deletePackage(pkg.id)" class="table-do"  iconName="Delete" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper v-if="isLogin" @click="openEditor(pkg)" class="table-do"  iconName="Editor" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper v-if="isLogin" @click="openConfirmModal(`确认删除“${pkg.name}”的信息?`,() => deletePackage(pkg.id))" class="table-do"  iconName="Delete" theme="outline" :strokeWidth='3' size="20" />
               </td>
             </tr>
           </tbody>
@@ -64,7 +66,7 @@
       </div>
     </div>
   </div> 
-  <my-modal :show="modal_show.fileUpload_show" :modeless="false"  modalKey="fileUpload_show">
+  <my-modal v-model="modal_show.fileUpload_show" :modeless="false">
     <!-- 自动填涂 -->
     <div class="au-layout">
       <div class="rows" style="gap: 10px">
@@ -137,7 +139,7 @@
       </div>
     </div>
   </my-modal>
-  <my-modal :show="modal_show.editor_show" :modeless="false"  modalKey="editor_show">
+  <my-modal v-model="modal_show.editor_show" :modeless="false">
     <div class="au-layout">
       <div class="rows" style="gap: 10px">
         <div class="cols s12">
@@ -157,7 +159,7 @@
       </div>
     </div>
   </my-modal>
-  <my-modal width="280" :show="modal_show.qrCode_show" :modeless="false" modalKey="qrCode_show">
+  <my-modal width="280" v-model="modal_show.qrCode_show">
     <div class="au-layout">
       <div class="rows center">
         <div class="cols s12 center">
@@ -179,361 +181,365 @@
       </div>
     </div>
   </my-modal>
+  <my-modal width="280" v-model="confirmData.show" :confirmTitle="confirmData.title" :onFunction="confirmData.function" :modeless="false">
+  </my-modal>
 </template>
 
-<script >
-import { ref, onMounted, watch, computed} from 'vue';
+<script setup>
+import { ref, onMounted, watch, computed, inject} from 'vue';
 import { usePackageStore } from '@/stores/packageStore';
 import { useOssStore } from '@/stores/ossStore';
 import { ossMultipartUpload } from '@/api/ossApi';
 import { parseAPK } from '@/assets/js/utils'
+import router from '@/router'
 
-
+const toast = inject('toast')
 
 const packageStore = usePackageStore()
 
 const ossStore = useOssStore()
 
-export default {
 
-  
-  setup() {
-    const appTypeList = ref(['学生端','教师端','家长端','识别','运营下载','优课优学'])
-    const appNameInfo = {
-      'com.uni.stuxueceapp':{appName:0,system:'ios'},
-      'cn.unisolution.onlineexamstu':{appName:0, system:'android'},
-      'com.uni.xuecestupad':{appName:0, system:'pad'},
-      'com.uni.tchxueceapp':{appName:1, system:'ios'},
-      'cn.unisolution.onlineexam':{appName:1, system:'android'},
-      'com.uni.xuecetchpad':{appName:1, system:'pad'},
-      'com.uni.parentxueceapp':{appName:2, system:'ios'},
-      'cn.uni.xuece.parentapp':{appName:2, system:'android'}
+const appTypeList = ref(['学生端','教师端','家长端','识别','运营下载','优课优学'])
+const appNameInfo = {
+  'com.uni.stuxueceapp':{appName:0,system:'ios'},
+  'cn.unisolution.onlineexamstu':{appName:0, system:'android'},
+  'com.uni.xuecestupad':{appName:0, system:'pad'},
+  'com.uni.tchxueceapp':{appName:1, system:'ios'},
+  'cn.unisolution.onlineexam':{appName:1, system:'android'},
+  'com.uni.xuecetchpad':{appName:1, system:'pad'},
+  'com.uni.parentxueceapp':{appName:2, system:'ios'},
+  'cn.uni.xuece.parentapp':{appName:2, system:'android'}
+}
+const systemList = ref(['全部','ios','android','鸿蒙','Win','平板'])
+// const versionList = ref(['全部'])
+const arList = ref(['全部'])
+var filterPram = {appname: '0',system:null,page:1,per_page:10}
+// const packages = ref([])
+const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
+
+
+const file = ref(null)
+
+const progress = ref(0)
+const uploadResult = ref(null)
+const error = ref(null)
+const isUploading = ref(false)
+const packageInfo = ref(null)
+const isParsing = ref(false)
+
+//待编辑的package
+const curPackage = ref(null)
+
+//二次确认结构
+const confirmData = ref({show:false,title:null,function:null})
+
+const curPkgIsUpdate = computed(()=>{
+  return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
+})
+
+const toPage = (path) => {
+  // router.push(path)
+  router.replace({
+    path: path,
+    query: { 
+      redirect: router.currentRoute.value.fullPath // 携带当前路径用于登录后回跳
     }
-    const systemList = ref(['全部','ios','android','鸿蒙','Win','平板'])
-    // const versionList = ref(['全部'])
-    const arList = ref(['全部'])
-    var filterPram = {appname: '0',system:null,page:1,per_page:10}
-    // const packages = ref([])
-    const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
-    const file = ref(null)
+  })
+}
 
-    const progress = ref(0)
-    const uploadResult = ref(null)
-    const error = ref(null)
-    const isUploading = ref(false)
-    const packageInfo = ref(null)
-    const isParsing = ref(false)
+const openConfirmModal = (title, func) => {
+  confirmData.value = {
+    title,
+    function: func, // 直接保存函数
+    show: true
+  };
+}
 
-    //待编辑的package
-    const curPackage = ref(null)
+const pePackageIconUrl = computed(()=>{
+  if(packageInfo.value.appName){
+    let appName = packageInfo.value.appName
+    if(appName == 3){
+      return require("@/assets/imgs/icons/scan.png")
+    }else if(appName == 4){
+      return require("@/assets/imgs/icons/download.png")
+    }else if(appName == 5){
+      return require("@/assets/imgs/icons/youke.png")
+    }else{
+      return null
+    }
+  }else{
+    return null
+  }
+})
 
-    const curPkgIsUpdate = computed(()=>{
-      return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
-    })
+const getPkgUrl = computed(() => {
+  return (appName) => {
+    // console.log(appName)
+    if(appName == 3){
+      return require("@/assets/imgs/icons/scan.png")
+    }else if(appName == 4){
+      return require("@/assets/imgs/icons/download.png")
+    }else if(appName == 5){
+      return require("@/assets/imgs/icons/youke.png")
+    }else{
+      return null
+    }
+  }
+  
+})
 
-    const pePackageIconUrl = computed(()=>{
-      if(packageInfo.value.appName){
-        let appName = packageInfo.value.appName
-        if(appName == 3){
-          return require("@/assets/imgs/icons/scan.png")
-        }else if(appName == 4){
-          return require("@/assets/imgs/icons/download.png")
-        }else if(appName == 5){
-          return require("@/assets/imgs/icons/youke.png")
-        }else{
-          return null
+const qrValue = ref("")
+const isLogin = ref(false)
+
+
+onMounted(() => {
+  // console.log(process.env.VUE_APP_BASE_URL)
+  packageStore.fetchPackages(filterPram)
+  if(localStorage.getItem('token')){
+    isLogin.value = true
+  }
+  
+});
+
+
+
+watch(
+  file,
+  ()=>{
+    parsePackage()
+    // console.log('file变化:', oldFile, '→', newFile);
+  }
+)
+
+const parsePackage = () => {
+  if (file.value){
+    if(file.value.name.endsWith('.apk') || file.value.name.endsWith('.ipa')){
+      isParsing.value = true
+      parseAPK(file.value).then(rst => {
+        isParsing.value = false
+        packageInfo.value = {
+          fileName : rst.name,
+          packageName : rst.packageName,
+          size : rst.size,
+          version : rst.versionName,
+          ar : rst.ar,
+          icon: rst.icon
         }
-      }else{
-        return null
+        // console.log(packageInfo)
+      })
+    }else if(file.value.name.endsWith('.exe')){
+      // console.log(file.value)
+      packageInfo.value = {
+        fileName : file.value.name,
+        appName : 3, //默认识别客户端
+        size : file.value.size,
+        version : null,
+        ar : null,
+        icon: null,
       }
-    })
+    }else{
+      console.log("仅支持上传.apk、.ipa、.exe文件")
+    }
+  }else{
+    console.log("没有找到文件")
+  }
+}
 
-    const getPkgUrl = computed(() => {
-      return (appName) => {
-        console.log(appName)
-        if(appName == 3){
-          return require("@/assets/imgs/icons/scan.png")
-        }else if(appName == 4){
-          return require("@/assets/imgs/icons/download.png")
-        }else if(appName == 5){
-          return require("@/assets/imgs/icons/youke.png")
-        }else{
-          return null
-        }
-      }
-      
-    })
+const changeAppType = (index) => {
+  filterPram.appname = `${index}`
+  systemList.value = ['全部', ...Object.values(appNameInfo)
+        .filter(item => item.appName === index)
+        .map(item => item.system)];
+  packageStore.fetchPackages(filterPram)
+}
 
-    const qrValue = ref("")
+// const changeVersion = (index) => {
+//   console.log(`changeVersion(${index}),${versionList.value[index]}`)
+// }
 
+const changeAr = (index) => {
+  console.log(`changeAr(${index}),${arList.value[index]}`)
+}
 
-    onMounted(() => {
-      // console.log(process.env.VUE_APP_BASE_URL)
-      packageStore.fetchPackages(filterPram)
-    });
+const changeSystem = (index) => {
+  filterPram.system = index == 0 ? null : systemList.value[index]
+  packageStore.fetchPackages(filterPram)
+}
 
+const uploadFile = () => {
+  // console.log(file.value.name)
+  if(file.value == null){
+        file.value = null;
+        console.log(`error:请上传文件`)
+        // console.log(typeof toast )
+        toast('请上传文件', { type: 'error', duration: 1000 })
+        return
+    }
+
+  // app检查文件类型
+  if (!isIpaOrApkOrPeFile(file.value)) {
+      file.value = null;
+      console.log(`error:请选择正确的ipa或apk文件`)
+      return
+  }
+  // 判断包名是否正确
+  if(packageInfo.value.packageName && !appNameInfo[packageInfo.value.packageName]){
+    console.log('error:不存在的包名，请检查')
+    return
+  }
     
 
-    watch(
-      file,
-      (newFile, oldFile)=>{
-        parsePackage()
-        console.log('file变化:', oldFile, '→', newFile);
-      }
-    )
-
-    const parsePackage = () => {
-      if (file.value){
-        if(file.value.name.endsWith('.apk') || file.value.name.endsWith('.ipa')){
-          isParsing.value = true
-          parseAPK(file.value).then(rst => {
-            isParsing.value = false
-            packageInfo.value = {
-              fileName : rst.name,
-              packageName : rst.packageName,
-              size : rst.size,
-              version : rst.versionName,
-              ar : rst.ar,
-              icon: rst.icon
-            }
-            console.log(packageInfo)
-          })
-        }else if(file.value.name.endsWith('.exe')){
-          console.log(file.value)
-          packageInfo.value = {
-            fileName : file.value.name,
-            appName : 3, //默认识别客户端
-            size : file.value.size,
-            version : null,
-            ar : null,
-            icon: null,
-          }
-        }else{
-          console.log("仅支持上传.apk、.ipa、.exe文件")
-        }
-      }else{
-        console.log("没有找到文件")
-      }
-    }
-
-    const changeAppType = (index) => {
-      filterPram.appname = `${index}`
-      systemList.value = ['全部', ...Object.values(appNameInfo)
-            .filter(item => item.appName === index)
-            .map(item => item.system)];
-      packageStore.fetchPackages(filterPram)
-    }
-
-    // const changeVersion = (index) => {
-    //   console.log(`changeVersion(${index}),${versionList.value[index]}`)
-    // }
-
-    const changeAr = (index) => {
-      console.log(`changeAr(${index}),${arList.value[index]}`)
-    }
-
-    const changeSystem = (index) => {
-      filterPram.system = index == 0 ? null : systemList.value[index]
-      packageStore.fetchPackages(filterPram)
-    }
-
-    const uploadFile = () => {
-      // console.log(file.value.name)
-      if(file.value == null){
-            file.value = null;
-            console.log(`error:请上传文件`)
-            return
-        }
-
-      // app检查文件类型
-      if (!isIpaOrApkOrPeFile(file.value)) {
-          file.value = null;
-          console.log(`error:请选择正确的ipa或apk文件`)
-          return
-      }
-      // 判断包名是否正确
-      if(packageInfo.value.packageName && !appNameInfo[packageInfo.value.packageName]){
-        console.log('error:不存在的包名，请检查')
-        return
-      }
-        
-
-      const packageInfoJson = {
-        'appname': packageInfo.value.appName || appNameInfo[packageInfo.value.packageName].appName,
-        'version': packageInfo.value.version,
-        'name': packageInfo.value.fileName,
-        'size': packageInfo.value.size,
-        'system': appNameInfo[packageInfo.value.packageName]?.system || 'win',
-        'create_time': null,
-        'comment': '',
-        'ar': packageInfo.value.ar || 'x86',
-        'status': 0,
-        'package_name': packageInfo.value.packageName || '',
-        'oss_key' : null,
-        'icon' : packageInfo.value.icon
-      }
-      console.log(packageInfoJson)
-      ossStore.getStsToken().then(() => {
-
-        ossUpload().then(() => {
-          packageInfoJson.oss_key = uploadResult.value.key
-          packageInfoJson.create_time = Date.now()
-          
-          packageStore.createPackage(packageInfoJson).then(() => {
-            packageStore.fetchPackages(filterPram)
-            clearFile()
-          }).catch(error => {
-            console.error('上传失败', error);
-          })
-        }).catch((err) => {
-          console.log('上传文件到oss失败',err)
-        })
-      }).catch( err => {
-        console.log('获取stsToken失败',err)
-      })
-      
-      
-    }
-
-    const deletePackage = async (id) => {
-      packageStore.deletePackage(id).then(() => {
-        
-        packageStore.fetchPackages(filterPram)
-      }).catch(error => {
-        console.error('删除失败', error);
-      })
-    }
-
-    const ossUpload = async () => {
-      // console.log('ossUpload')
-
-      if (!file.value) return;
-
-      isUploading.value = true;
-      error.value = null;
-
-      try {
-        //添加进度回调（可选）
-        const options = {
-          progress: (p) => {
-            progress.value = Math.round(p * 100);
-          }
-        };
-
-        uploadResult.value = await ossMultipartUpload(
-          file.value, 
-          'packages/', 
-          ossStore.stsToken,
-          options
-        );
-      } catch (err) {
-        error.value = `上传失败: ${err.message}`;
-      } finally {
-        isUploading.value = false;
-      }
-    }
-
-    const isIpaOrApkOrPeFile = (file) => {
-      // 判断文件类型是否为IPA或APK
-      const allowedExtensions = [".ipa", ".apk", ".exe"];
-      const fileExtension = file.name.substr(file.name.lastIndexOf(".")).toLowerCase();
-      return allowedExtensions.includes(fileExtension);
-    }
-
-     const clearFile = () => {
-      packageInfo.value = null;
-      isParsing.value = false;
-      uploadResult.value = null;
-      progress.value = 0
-      file.value = null
-     }
-
-    const cancelUpload = () => {
-      modal_show.value.fileUpload_show=false;
-      clearFile()
-    }
-
-    const openEditor = ( pkg ) => {
-      curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,origin:{name:pkg.name,comment:pkg.comment}}
-      modal_show.value.editor_show=true;
-    }
-
-    const formatDateTime = (dateStr) => {
-      const date = new Date(dateStr);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      const seconds = String(date.getSeconds()).padStart(2, "0");
-      return `${month}月${day}日 ${hours}:${minutes}:${seconds}`;
-    }
-
-    const updatePackageInfo = () => {
-
-      const updateData = {
-        name:curPackage.value.name == curPackage.value.origin.name ? null:curPackage.value.name, 
-        comment:curPackage.value.comment == curPackage.value.origin.comment ? null:curPackage.value.comment
-      }
-
-      packageStore.updatePackage(curPackage.value.id, updateData).then(()=>{
-        modal_show.value.editor_show = false
-        packageStore.fetchPackages(filterPram)
-      }).catch(error => {
-        console.error('修改失败',error)
-      })
-
-      console.log(updateData)
-    }
-
-    const downloadFile = (oss_key, fileName) => {
-      ossStore.getDownloadUrl(oss_key).then(rst=>{
-        // console.log(rst.url)
-        const a = document.createElement('a');
-        a.href = rst.url;
-        a.download = fileName; // 设置下载文件名（默认 app.apk）
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      })
-    }
-
-    const openQrCode = (pkg) => {
-      curPackage.value = pkg
-      console.log(curPackage.value)
-      modal_show.value.qrCode_show = true
-      qrValue.value = `${process.env.VUE_APP_BASE_URL}#/AppManage/app-detail/${curPackage.value.id}`
-    }
-
-
-    return {
-      appTypeList,arList,systemList,
-      changeAppType,changeAr,changeSystem,
-      curPackage,
-      packageStore,
-      modal_show,
-      uploadFile,
-      file,
-      progress,
-      uploadResult,
-      error,
-      isParsing,
-      packageInfo,
-      cancelUpload,
-      clearFile,
-      deletePackage,
-      openEditor,
-      formatDateTime,
-      curPkgIsUpdate,
-      updatePackageInfo,
-      downloadFile,
-      qrValue,
-      openQrCode,
-      pePackageIconUrl,
-      getPkgUrl
-    };
+  const packageInfoJson = {
+    'appname': packageInfo.value.appName || appNameInfo[packageInfo.value.packageName].appName,
+    'version': packageInfo.value.version,
+    'name': packageInfo.value.fileName,
+    'size': packageInfo.value.size,
+    'system': appNameInfo[packageInfo.value.packageName]?.system || 'win',
+    'create_time': null,
+    'comment': '',
+    'ar': packageInfo.value.ar || 'x86',
+    'status': 0,
+    'package_name': packageInfo.value.packageName || '',
+    'oss_key' : null,
+    'icon' : packageInfo.value.icon
   }
-};
+  console.log(packageInfoJson)
+  ossStore.getStsToken().then(() => {
+
+    ossUpload().then(() => {
+      packageInfoJson.oss_key = uploadResult.value.key
+      packageInfoJson.create_time = Date.now()
+      
+      packageStore.createPackage(packageInfoJson).then(() => {
+        packageStore.fetchPackages(filterPram)
+        clearFile()
+      }).catch(error => {
+        console.error('上传失败', error);
+      })
+    }).catch((err) => {
+      console.log('上传文件到oss失败',err)
+    })
+  }).catch( err => {
+    console.log('获取stsToken失败',err)
+  })
+  
+  
+}
+
+const deletePackage = async (id) => {
+  packageStore.deletePackage(id).then(() => {
+    
+    packageStore.fetchPackages(filterPram)
+  }).catch(error => {
+    console.error('删除失败', error);
+  })
+}
+
+const ossUpload = async () => {
+  // console.log('ossUpload')
+
+  if (!file.value) return;
+
+  isUploading.value = true;
+  error.value = null;
+
+  try {
+    //添加进度回调（可选）
+    const options = {
+      progress: (p) => {
+        progress.value = Math.round(p * 100);
+      }
+    };
+
+    uploadResult.value = await ossMultipartUpload(
+      file.value, 
+      'packages/', 
+      ossStore.stsToken,
+      options
+    );
+  } catch (err) {
+    error.value = `上传失败: ${err.message}`;
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+const isIpaOrApkOrPeFile = (file) => {
+  // 判断文件类型是否为IPA或APK
+  const allowedExtensions = [".ipa", ".apk", ".exe"];
+  const fileExtension = file.name.substr(file.name.lastIndexOf(".")).toLowerCase();
+  return allowedExtensions.includes(fileExtension);
+}
+
+ const clearFile = () => {
+  packageInfo.value = null;
+  isParsing.value = false;
+  uploadResult.value = null;
+  progress.value = 0
+  file.value = null
+ }
+
+const cancelUpload = () => {
+  modal_show.value.fileUpload_show=false;
+  clearFile()
+}
+
+const openEditor = ( pkg ) => {
+  curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,origin:{name:pkg.name,comment:pkg.comment}}
+  modal_show.value.editor_show = true;
+  // console.log(modal_show.value.editor_show)
+}
+
+const formatDateTime = (dateStr) => {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+}
+
+const updatePackageInfo = () => {
+
+  const updateData = {
+    name:curPackage.value.name == curPackage.value.origin.name ? null:curPackage.value.name, 
+    comment:curPackage.value.comment == curPackage.value.origin.comment ? null:curPackage.value.comment
+  }
+
+  packageStore.updatePackage(curPackage.value.id, updateData).then(()=>{
+    modal_show.value.editor_show = false
+    packageStore.fetchPackages(filterPram)
+  }).catch(error => {
+    console.error('修改失败',error)
+  })
+
+  console.log(updateData)
+}
+
+const downloadFile = (oss_key, fileName) => {
+  ossStore.getDownloadUrl(oss_key).then(rst=>{
+    // console.log(rst.url)
+    const a = document.createElement('a');
+    a.href = rst.url;
+    a.download = fileName; // 设置下载文件名（默认 app.apk）
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  })
+}
+
+const openQrCode = (pkg) => {
+  curPackage.value = pkg
+  console.log(curPackage.value)
+  modal_show.value.qrCode_show = true
+  qrValue.value = `${process.env.VUE_APP_BASE_URL}#/AppManage/app-detail/${curPackage.value.id}`
+}
+
+
+    
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->

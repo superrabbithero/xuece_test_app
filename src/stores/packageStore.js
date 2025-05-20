@@ -4,14 +4,15 @@ import packageApi from '@/api/endpoints/package'
 export const usePackageStore = defineStore('package', {
   state: () => ({
     packages: [],
-    pagination: {}
+    pagination: {},
+    isLoading:false
   }),
   
   actions: {
     async fetchPackages(params) {
-
+      this.isLoading = true
       const res = await packageApi.getPackages(params)
-      console.log(res)
+      this.isLoading = false
       this.packages = res?.data?.packages
       this.pagination = {
         total: res?.data?.total,
@@ -69,7 +70,6 @@ export const usePackageStore = defineStore('package', {
     async getPackage(id) {
       try {
         const res = await packageApi.getPackageById(id); // 添加 await
-        // console.log(res,res.package,res['package'])
         return res.data.package; // 返回 Promise 的结果
       } catch (error) {
         console.error('查询软件包失败:', error);

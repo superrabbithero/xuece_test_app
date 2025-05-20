@@ -1,90 +1,118 @@
 <template>
-  <div class="overlay" v-show="show && !modeless"></div>
+  <div class="overlay" v-show="modelValue && !modeless"></div>
   <transition name="modal-slide">
-    <div class="modal" :style="{width:`${width}px`}" ref="modal" v-if="show">     
+    <div class="modal" :style="{width:`${width}px`}" ref="modal" v-if="modelValue">     
       <div :class="{'modal-bar':true,'draged':dragable}" @mousedown="dragdown($event)"  @mouseup="dragup">
-        <div class="modal-close" @click="close()">
+        <div class="modal-close" @click="closeModal">
         </div>
       </div>
       <div class="modal-slot">
-        <slot></slot>
+        <div v-if="confirmTitle" class="au-layout">
+          <div class="rows center">
+            <div class="cols s11 confirm-title">
+              {{confirmTitle}}
+            </div>
+          </div>
+          <div class="rows center">
+            <div class="cols s12 space-around">
+              <input type="button" value="取消"  @click="closeModal">
+              <input type="button" class="fill" value="确认" @click="onConfirm">
+            </div>
+          </div>
+        </div>
+        <slot v-else></slot>
       </div>
     </div>
 </transition>
 </template>
 
-<script>
-export default({
-  props:{
-    show: {
-      type: Boolean,
-      required: true,
-    },
-    modalKey: {
-      type: String,
-      required: true
-    },
-    dragable: {
-      type: Boolean,
-      required: false,
-      default: false
-    },
-    modeless: {
-      type: Boolean,
-      required: false,
-      default: true
-    },
-    width: {
-      type: Number,
-      default : 400
-    }
-  },
-  data(){
-    return{
-      draged: false,
-      dragedel: null,
-      disx: 0,
-      disy: 0,
-    }
-  },
+<script setup>
+import { ref, watch, defineProps, defineEmits } from 'vue';
 
-  watch:{
-    show(newVal){
-      if(newVal && !this.modeless){
-        document.body.style.overflow = 'hidden'
-      }else{
-        document.body.style.overflow = 'unset'
-      }
-    }
-  },
-  
+const emit = defineEmits(['update:modelValue']);
 
-  methods:{
-    
-    dragdown(e) {
-      if(this.dragable){
-        this.dragedel = this.$refs.modal
-        document.addEventListener('mousemove', this.dragmove)
-        this.disx = e.pageX - this.dragedel.offsetLeft
-        this.disy = e.pageY - this.dragedel.offsetTop
-      }
-    },
-    dragup() {
-      this.dragedel = null
-      document.removeEventListener('mousemove',this.dragmove)
-    },
-    dragmove(e) {
-      // var scrolltop = document.documentElement.scrollTop||document.body.scrollTop;
-      if(this.dragedel){
-        this.dragedel.style.left = e.pageX - this.disx + 'px';
-        this.dragedel.style.top = e.pageY - this.disy + 'px';
-      }      
-    },
-    close() {
-      this.$parent.modal_show[this.modalKey] = false
-    }
+const props = defineProps({
+  modelValue:{
+    type:Boolean,
+    required: true
+  },
+  dragable: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  modeless: {
+    type: Boolean,
+    required: false,
+    default: true
+  },
+  width: {
+    type: Number,
+    default : 400
+  },
+  confirmTitle: {
+    type: String,
+    default: null
+  },
+  onFunction:{
+    type:Function
   }
 })
+
+// const { modelValue } = toRefs(props);
+
+// const draged = ref(false)
+const dragedel = ref(null)
+const disx = ref(0)
+const disy = ref(0)
+const modal = ref(null)
+
+const onConfirm = async () => {
+    if(props.confirmTitle){
+      await props.onFunction()
+    }
+    closeModal()
+}
+
+watch(
+  props.modelValue,
+  (newVal)=>{
+    console.log(newVal)
+    if(newVal && !props.modeless){
+      document.body.style.overflow = 'hidden'
+    }else{
+      document.body.style.overflow = 'unset'
+    }
+  }
+)
+
+
+
+const dragdown = (e) => {
+  if(props.dragable){
+    dragedel.value = modal.value
+    document.addEventListener('mousemove', dragmove)
+    disx.value = e.pageX - dragedel.value.offsetLeft
+    disy.value = e.pageY - dragedel.value.offsetTop
+  }
+}
+const dragup = () => {
+  dragedel.value = null
+  document.removeEventListener('mousemove',dragmove)
+}
+
+const dragmove = (e) => {
+  // var scrolltop = document.documentElement.scrollTop||document.body.scrollTop;
+  if(dragedel.value){
+    dragedel.value.style.left = e.pageX - disx.value + 'px';
+    dragedel.value.style.top = e.pageY - disy.value + 'px';
+  }      
+}
+
+
+const closeModal = () => {
+  emit('update:modelValue', false)
+}
 
 
 </script>
@@ -152,7 +180,9 @@ export default({
   }
 }
 
-
+.confirm-title {
+  padding-bottom: 1rem;
+}
 
 
 </style>

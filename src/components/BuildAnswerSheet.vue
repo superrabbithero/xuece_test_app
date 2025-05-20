@@ -1,5 +1,5 @@
 <template>
-  <my-modal :show="modal_show.linkxuecemodal_show" :dragable="true" :modalKey="'linkxuecemodal_show'">
+  <my-modal v-model="modal_show.linkxuecemodal_show" :dragable="true" >
     <!-- 自动填涂 -->
     <div class="modal-content">
       <div class="modal-line">
@@ -27,7 +27,7 @@
     </div>
   </my-modal>
 
-  <my-modal :show="modal_show.json_show" :dragable="true" :modalKey="'json_show'">
+  <my-modal v-model="modal_show.json_show" :dragable="true" >
     <!-- json-view -->
     <div class="modal-content" style="max-height: 500px;overflow: auto;">
      <json-modal :json-data="cutParamJson"></json-modal>
@@ -36,7 +36,7 @@
     <button @click="formattedJsonStr">生成Json</button>
   </my-modal>
 
-  <my-modal :show="modal_show.fill_show" :dragable="true" :modalKey="'fill_show'">
+  <my-modal v-model="modal_show.fill_show" :dragable="true">
     <div class="au-layout">
       <div class="rows gutter-l" >
         <div class="cols s12">
