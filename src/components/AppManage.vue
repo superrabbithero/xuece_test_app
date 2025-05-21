@@ -48,12 +48,12 @@
                 
               </td> -->
               <td style="min-width: 150px">
-                <icon-wrapper class="table-do"  iconName="Download" theme="filled" :strokeWidth='3' size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
+                <icon-wrapper class="table-do"  name="RiDownloadLine" size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
-                <icon-wrapper v-if="pkg.icon?.url" @click="openQrCode(pkg)" class="table-do"  iconName="TwoDimensionalCode" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper v-if="pkg.icon?.url" @click="openQrCode(pkg)" class="table-do"  name="RiQrCodeFill" size="20" />
                 <!-- <a href="#"  class="mybtn" >二维码</a> -->
-                <icon-wrapper v-if="isLogin" @click="openEditor(pkg)" class="table-do"  iconName="Editor" theme="outline" :strokeWidth='3' size="20" />
-                <icon-wrapper v-if="isLogin" @click="openConfirmModal(`确认删除“${pkg.name}”的信息?`,() => deletePackage(pkg.id))" class="table-do"  iconName="Delete" theme="outline" :strokeWidth='3' size="20" />
+                <icon-wrapper v-if="isLogin" @click="openEditor(pkg)" class="table-do"  name="RiDraftLine" size="20" />
+                <icon-wrapper v-if="isLogin" @click="openConfirmModal(`确认删除“${pkg.name}”的信息?`,() => deletePackage(pkg.id))" class="table-do"  name="RiDeleteBinLine" theme="outline" :strokeWidth='3' size="20" />
               </td>
             </tr>
           </tbody>
@@ -94,7 +94,7 @@
                 </div>
                 <div class="package-other-info">
                   <div>{{packageInfo.version}} ({{packageInfo.ar}})</div>
-                  <icon-wrapper v-if="progress <= 0" class="table-do"  iconName="DeleteOne" theme="outline" :strokeWidth='3' size="16" @click="clearFile"/>
+                  <icon-wrapper v-if="progress <= 0" class="table-do"  name="RiDeleteBin2Line" size="16" @click="clearFile"/>
                 </div>
               </div>
             </div>
@@ -119,13 +119,13 @@
                 </div>
                 <div class="package-other-info">
                   <label>版本号: <input type="text" placeholder="请输入版本号" v-model="packageInfo.version" /></label>
-                  <icon-wrapper v-if="progress <= 0" class="table-do"  iconName="DeleteOne" theme="outline" :strokeWidth='3' size="16" @click="clearFile"/>
+                  <icon-wrapper v-if="progress <= 0" class="table-do"  name="RiDeleteBin2Line" @click="clearFile"/>
                 </div>
               </div>
             </div>
             <div class="progress-box" v-if="progress > 0">
-              <icon-wrapper class="rotating-element" v-if="progress < 100" iconName="LoadingOne" theme="outline" :strokeWidth='3' size="16"/>
-              <icon-wrapper v-else iconName="CheckOne" theme="outline" :strokeWidth='3' size="16"/>
+              <icon-wrapper class="rotating-element" v-if="progress < 100" name="RiLoader2Line" size="16"/>
+              <icon-wrapper v-else name="RiCheckboxCircleLine" size="16"/>
               <div class="progress-bar">
                 <div class="progressing" :style="{width:progress + '%'}"></div>
               </div>
@@ -373,19 +373,19 @@ const uploadFile = () => {
         file.value = null;
         console.log(`error:请上传文件`)
         // console.log(typeof toast )
-        toast('请上传文件', { type: 'info', duration: 1000 })
+        toast('请上传文件', { type: 'info' })
         return
     }
 
   // app检查文件类型
   if (!isIpaOrApkOrPeFile(file.value)) {
       file.value = null;
-      console.log(`error:请选择正确的ipa或apk文件`)
+      toast('请选择正确的ipa或apk文件', { type: 'error' })
       return
   }
   // 判断包名是否正确
   if(packageInfo.value.packageName && !appNameInfo[packageInfo.value.packageName]){
-    console.log('error:不存在的包名，请检查')
+    toast('不存在的包名，请检查', { type: 'error' })
     return
   }
     
@@ -404,7 +404,6 @@ const uploadFile = () => {
     'oss_key' : null,
     'icon' : packageInfo.value.icon
   }
-  console.log(packageInfoJson)
   ossStore.getStsToken().then(() => {
 
     ossUpload().then(() => {
@@ -518,7 +517,6 @@ const updatePackageInfo = () => {
     console.error('修改失败',error)
   })
 
-  console.log(updateData)
 }
 
 const downloadFile = (oss_key, fileName) => {
@@ -536,7 +534,6 @@ const downloadFile = (oss_key, fileName) => {
 
 const openQrCode = (pkg) => {
   curPackage.value = pkg
-  console.log(curPackage.value)
   modal_show.value.qrCode_show = true
   qrValue.value = `${process.env.VUE_APP_BASE_URL}#/AppManage/app-detail/${curPackage.value.id}`
 }

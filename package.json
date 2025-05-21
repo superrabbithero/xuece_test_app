@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@icon-park/vue-next": "^1.4.2",
+    "@remixicon/vue": "^4.6.0",
     "ali-oss": "^6.22.0",
     "app-info-parser": "^1.1.6",
     "axios": "^1.8.4",

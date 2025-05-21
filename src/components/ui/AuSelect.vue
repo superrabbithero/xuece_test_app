@@ -3,7 +3,7 @@
     <div :class="{'input-area':true,'active':selectShow}" @click="openSelect">
       <div class="list-value">{{dataList[currIndex]}}</div>
       <!-- <svg-icon name="arrow-down" size="16" :class="{'icon':true,'show':selectShow}" ></svg-icon> -->
-      <IconWrapper iconName="Down" theme="filled" :strokeWidth='4' size="16" :class="{'icon':true,'show':selectShow}"/>
+      <IconWrapper name="RiArrowDownSLine" size="16" :class="{'icon':true,'show':selectShow}"/>
     </div>
     <div :class="{'select-item-group':true,'show':selectShow}" ref="options">
       <div :class="{'options':true,'show':selectShow}">

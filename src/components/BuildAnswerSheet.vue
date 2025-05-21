@@ -101,7 +101,7 @@
       <div v-if="canvasVisible" class="menu-bar" >
         <div @click="clickuploadpdf" class="filenameview">
           <!-- <file-pdf-one theme="filled" size="22" :strokeWidth="1"/> -->
-          <IconWrapper iconName="FilePdfOne" theme="filled" :strokeWidth='1' size="22" />
+          <IconWrapper name="RiFilePdfLine" size="22" />
           <div class="filename">{{filename}}</div>
         </div>
 
@@ -109,13 +109,13 @@
         <div>
             <div class="cutparameditbox">
               <!-- <focus-one @click="showCutParam()" theme="outline" size="22" :strokeWidth="1"/> -->
-              <IconWrapper iconName="FocusOne" theme="outline" :strokeWidth='1' size="22" @click="showCutParam()"/>
+              <IconWrapper name="RiFocusMode" size="22" @click="showCutParam()"/>
             </div>
             <div class="cutparameditbox">
-              <IconWrapper iconName="LinkThree" @click="modal_show.linkxuecemodal_show=!modal_show.linkxuecemodal_show" theme="outline" size="22" :strokeWidth="2"/>
+              <IconWrapper name="RiLink" @click="modal_show.linkxuecemodal_show=!modal_show.linkxuecemodal_show"  size="22"/>
             </div>
-            <div class="cutparameditbox" v-show="cutParamJson" @click="modal_show.json_show=!modal_show.json_show">
-              <div class="filename">JSON</div>
+            <div class="cutparameditbox" title="识别参数" v-show="cutParamJson" @click="modal_show.json_show=!modal_show.json_show">
+              <IconWrapper name="RiBracesLine" size="22" @click="showCutParam()"/>
             </div>
             <div class="cutparameditbox" v-show="cutParamJson" @click="modal_show.fill_show=!modal_show.fill_show">
               <div class="filename">填涂</div>
@@ -157,9 +157,9 @@
 
         <div class="dragged-image" v-for="(image, index) in images" v-show="image" :key="index"  @pointerdown="dragimgdown($event)"  @pointerup="dragimgup" :ref="`image-${index}`">
           <img  draggable="false" :src="image" width="150" />
-          <IconWrapper iconName="CheckOne" theme="outline" size="22" fill="#7ed321" :strokeWidth="2" style="position: absolute;right: -11px;top: -9px;" @click="darwimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
-          <IconWrapper iconName="CloseOne" theme="outline" size="22" fill="#d0021b" :strokeWidth="2" style="position: absolute;right: -11px;top: 24px;" @click="delimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
-          <IconWrapper iconName="SlidingHorizontal" theme="outline" size="22" fill="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
+          <IconWrapper name="RiCheckboxCircleFill" size="22" color="#7ed321" style="position: absolute;right: -11px;top: -9px;" @click="darwimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
+          <IconWrapper name="RiCloseCircleFill" size="22" color="#d0021b" style="position: absolute;right: -11px;top: 24px;" @click="delimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
+          <IconWrapper name="RiExpandDiagonalS2Line" size="22" color="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
         </div>
 
         <edit-tools-box v-if="canvasVisible"></edit-tools-box>

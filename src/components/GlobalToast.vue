@@ -1,8 +1,8 @@
 <template>
   <transition name="toast-fade">
     <div v-if="visible" class="toast">
-      <icon-wrapper :class="`icon-${type}`" :iconName="iconName[type]" theme="filled" :strokeWidth='5' size="16"/>
-      {{ message }}
+      <icon-wrapper :class="`icon-${type}`" :name="iconName[type]" size="20"/>
+      <div class="toast-message">{{ message }}</div>
     </div>
   </transition>
 </template>
@@ -13,7 +13,7 @@ import { ref ,defineExpose} from 'vue'
 // 响应式状态
 const visible = ref(false)
 const message = ref('')
-const iconName = ref({"info":"Info","warning":"Attention","success":"CheckOne","error":"CloseOne"})
+const iconName = ref({"info":"RiInformation2Fill","warning":"RiAlertFill","success":"RiCheckboxCircleFill","error":"RiCloseCircleFill"})
 const type = ref('info') //info waring success error
 
 // 暴露给全局的方法
@@ -33,14 +33,15 @@ defineExpose({ show })
 <style scoped>
 .toast {
   position: fixed;
+  gap:10px;
+  display: flex;
+  align-items: center;
   top: 1rem;
   left: 50%;
   transform: translateX(-50%);
   padding: 7px 15px;
   font-size: 16px;
-  line-height: 20px;
-  /* height: 20px; */
-  border-radius: 15px;
+  border-radius: 8px;
   
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   z-index: 999;

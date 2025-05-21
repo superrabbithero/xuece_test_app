@@ -7,15 +7,15 @@
             <div class="menu-list">
               <div class="menu-list-title">工具</div>
               <div class="menu-item" @click="goto('/buildanswersheet')">
-                <IconWrapper iconName="FilePdfOne" theme="outline" :strokeWidth='2' size="19" />
+                <icon-wrapper name="RiFilePdfLine" size="19" />
                 答题卡生成
               </div>
               <div class="menu-item" @click="goto('/AppManage')">
-                <IconWrapper iconName="ApplicationOne" theme="outline" :strokeWidth='2' size="19" />
+                <icon-wrapper name="RiApps2AddLine"  size="19" />
                 学测应用管理
               </div>
               <div class="menu-item" @click="goto('/AppManage')">
-                <IconWrapper iconName="ApiApp" theme="outline" :strokeWidth='2' size="19" />
+                <icon-wrapper name="RiCommandLine"  size="19" />
                 脚本管理
               </div>
               
@@ -27,7 +27,7 @@
           </div>
         </transition>
         <div class="head-item"  @click="openmenu" id="menuicon">
-          <IconWrapper iconName="ApplicationTwo" theme="filled" :strokeWidth='2' />
+          <icon-wrapper name="RiApps2Fill"/>
           <!-- <svg-icon name="menu01"></svg-icon> -->
         </div>
         <div class="head-item home" @click="goto('/')">
@@ -37,7 +37,7 @@
           <div class="pagetitle">{{$route.meta.title?$route.meta.title:decodeURIComponent($route.path).slice(6)}}</div>
         </div>
         <div class="head-item" @click="changeStyle" style="margin-left: auto;">
-          <IconWrapper iconName="DarkMode" theme="outline" :strokeWidth='4' />
+          <icon-wrapper name="RiContrast2Line" />
           <!-- <svg-icon name="dark"></svg-icon> -->
         </div>  
       <!-- </div> -->

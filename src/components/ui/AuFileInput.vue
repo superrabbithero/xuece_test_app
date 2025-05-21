@@ -10,13 +10,13 @@
     </div>
     <div v-if="file && false" class="file-name">
       <label v-if="file.name" :title="file.name">{{file.name}}</label>
-      <icon-wrapper class="table-do"  iconName="DeleteOne" theme="outline" :strokeWidth='3' size="20" @click="clearFile"/>
+      <icon-wrapper class="table-do"  name="RiCloseCircleLine" size="20" @click="clearFile"/>
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref , inject} from 'vue';
 
 export default {
   props: {
@@ -37,6 +37,8 @@ export default {
     const file = ref(null)
     const fileInput = ref(null)
 
+    const toast = inject('toast')
+
     const handleDrop = (event) => {
       isFileOver.value = false
       event.preventDefault();
@@ -44,7 +46,7 @@ export default {
         file.value = event.dataTransfer.files[0]
         emit('update:modelValue', file.value)
       }else{
-        console.log("文件不符合要求")
+        toast(`文件格式不符合要求(${props.accept})`, { type: 'error' })
       }
       
     }

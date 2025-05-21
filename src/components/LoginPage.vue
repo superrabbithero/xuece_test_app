@@ -3,7 +3,11 @@
     <div class="rows center" style="height: 100%;">
       <div class="cols">
         <div class="login-card rows">
-          <div class="cols s12 center"><h1>Login</h1></div>
+          <div class="cols s12 center">
+             <icon-wrapper name="RiMapPinUserFill" size="30px" />
+             <!-- <RiHeartFill size="36px" color="red" /> -->
+            <h1>Login</h1>
+          </div>
           <div class="cols s12 center">
             <label>账号：
               <input type="text" placeholder="请输入账号" v-model="userData.user_name" style="width: 150px;">
@@ -24,10 +28,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref,inject } from 'vue';
 import { useUserStore } from '@/stores/userStore'
 import router from '@/router'
 import { useRoute } from 'vue-router'
+// import { RiHeartFill } from "@remixicon/vue";
 
 const route = useRoute()
 
@@ -35,18 +40,19 @@ const userData = ref({user_name:"",password:""})
 
 const userStore = useUserStore()
 
+const toast = inject('toast')
+
 const handleLogin = () => {
   userStore.login(userData.value).then((rst)=>{
 
     
     const redirect = route?.query?.redirect
-    console.log(route)
     // 跳转逻辑
     if (rst.code == 200){
       router.replace(redirect ? decodeURIComponent(redirect) : '/')
     }else if(rst.code == 402 || rst.code == 404){
       userData.value.password = ""
-      console.log("用户名或密码错误")
+      toast("用户名或密码错误",{type:'error'})
     }
       
   })

@@ -9,7 +9,7 @@
         <h3>{{appTypeList[parseInt(packageInfo.appname)]}}</h3>
       </div>
       <div class="cols center s12">
-        <icon-wrapper class="table-do"  :iconName="systemInfo.iconName" theme="outline" :strokeWidth='2' size="20"/>
+        <icon-wrapper class="table-do"  :name="systemInfo.iconName" size="20"/>
         <div style="font-size: 14px;margin-left: 5px">{{systemInfo.content}}</div>
       </div>
       <div class="cols center s12">
@@ -74,22 +74,22 @@ const packageInfo = ref(null)
 const systemInfo = computed(() => {
   if(packageInfo.value.system == 'ios'){
     return {
-      iconName : 'Apple',
+      iconName : 'RiAppleLine',
       content : '适用于苹果设备'
     }
   }else if(packageInfo.value.system == 'android' || packageInfo.value.system == 'pad'){
     return {
-      iconName : 'Android',
+      iconName : 'RiAndroidLine',
       content : '适用于Android设备'
     }
   }else if(packageInfo.value.system == 'win'){
     return {
-      iconName : 'Windows',
+      iconName : 'RiWindowsLine',
       content : '适用于win系统pc设备'
     }
   }else{
     return {
-      iconName : 'Other',
+      iconName : 'RiQuestionLine',
       content : '适用于鸿蒙设备'
     }
   }

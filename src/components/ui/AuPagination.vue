@@ -1,6 +1,6 @@
 <template>
     <div class="page-box" ref="pageBox">
-        <IconWrapper @click="pre()" iconName="Left" theme="outline" :strokeWidth='4' fill="#ffc848" size="34" />
+        <icon-wrapper @click="pre()" name="RiArrowLeftSLine" color="#ffc848" size="34" />
         <!-- <svg-icon @click="pre()" name="arrow-left" fill="#ffc848" size="34"></svg-icon> -->
         <div class="page-item" v-if="currentPage>3 && totalPages>10" @click="toPage(1)">1</div>
         <div class="page-item more" @click="pre(5)" v-if="currentPage>4 && totalPages>10">
@@ -11,8 +11,7 @@
             <svg-icon name="more"></svg-icon>
         </div>
         <div class="page-item" v-if="currentPage<totalPages-2 && totalPages>10" @click="toPage(totalPages)">{{totalPages}}</div>
-        <IconWrapper @click="next()" iconName="Right" theme="outline" :strokeWidth='4' fill="#ffc848" size="34" />
-        <!-- <svg-icon @click="next()" name="arrow-right" fill="#ffc848" size="34"></svg-icon> -->
+        <icon-wrapper @click="next()" name="RiArrowRightSLine" fill="#ffc848" size="34" />
     </div>
 </template>
 <script>
