@@ -23,7 +23,7 @@
               <th>大小</th>
               <th>上传时间</th>
               <th>描述</th>
-              <!-- <th>环境</th> -->
+              <th>调试</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -44,9 +44,9 @@
                 <div v-if="pkg.comment" class="commentcol" :title="pkg.comment" >{{ pkg.comment }}</div>
                 <div v-else class="commentcol" >-</div>
               </td>
-              <!-- <td style="width:200px">
-                
-              </td> -->
+              <td style="width:4rem">
+                <input type="checkbox" v-model="pkg.is_debug" @click.prevent="openChangeIsDebugConfirm(pkg)"/>{{pkg.is_debug}}
+              </td>
               <td style="min-width: 150px">
                 <icon-wrapper class="table-do"  name="RiDownloadLine" size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
@@ -312,6 +312,7 @@ watch(
   }
 )
 
+
 const parsePackage = () => {
   if (file.value){
     if(file.value.name.endsWith('.apk') || file.value.name.endsWith('.ipa')){
@@ -339,10 +340,10 @@ const parsePackage = () => {
         icon: null,
       }
     }else{
-      console.log("仅支持上传.apk、.ipa、.exe文件")
+      toast('仅支持上传.apk、.ipa、.exe文件', { type: 'error' })
     }
   }else{
-    console.log("没有找到文件")
+    toast('没有找到文件', { type: 'error' })
   }
 }
 
@@ -516,6 +517,26 @@ const updatePackageInfo = () => {
   }).catch(error => {
     console.error('修改失败',error)
   })
+
+}
+
+const openChangeIsDebugConfirm = (pkg) => {
+  curPackage.value = pkg
+  openConfirmModal(`确认将“${pkg.name}”变更为${pkg.is_debug? '正式包':'调试包'}?`, changeIsDebug)
+}
+
+const changeIsDebug = () => {
+  packageStore
+    .updatePackage(curPackage.value.id, {
+      is_debug:!curPackage.value.is_debug
+    })
+    .then(()=>{
+      modal_show.value.editor_show = false
+      packageStore.fetchPackages(filterPram)
+    })
+    .catch(error => {
+      console.error('修改失败',error)
+    })
 
 }
 

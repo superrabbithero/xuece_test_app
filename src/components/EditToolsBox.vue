@@ -39,10 +39,10 @@
     <div class="toolsbox" ref="toolsbox" id="toolsbox">
       <div class="edit-group">
         <div id="move" :class="[type=='move'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <move-one theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiDragMoveLine" color="#eee" size="25" />
         </div>
         <div id="pencil" :class="[type=='pencil'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <pencil theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiPencilLine" color="#eee" size="25" />
           <div v-if="type=='pencil'" class="text-editbox">
             <div class="color-item black" @click="getPenColor($event,'#000')"></div>
             <div class="color-item red" @click="getPenColor($event,'#f00')"></div>
@@ -55,13 +55,13 @@
           </div>
         </div>
         <div id="highlight" :class="[type=='highlight'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <high-light theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiMarkPenLine" color="#eee" size="25" />
         </div>
         <div id="rect" :class="[type=='rect'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <rectangle-one theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiRectangleLine" color="#eee" size="25" />
         </div>
         <div id="pic" :class="[type=='pic'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <picture-one theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiImageLine" color="#eee" size="25" />
           <div v-if="type=='pic'" class="pic-editbox">
             <div class="pics"> 
               <img src="sheeteditorimg\img1.jpg" @click="selectimg($event)"/>
@@ -72,14 +72,12 @@
           </div>
         </div>
         <!-- <div id="mark" :class="[type=='mark'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <text-style theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
           <div v-if="type=='mark'" class="text-editbox">
             <input id="watermark-text" type="text" value="水印" />
             <button @click="watermark()" >创建水印</button>
           </div>
         </div> -->
         <!-- <div id="text" :class="[type=='text'?'edit-item active':'edit-item']" @click="switchtools($event)" style="display:none">
-          <text-style theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
           <div v-if="type=='text'" class="text-editbox">
             <div class="color-item black active" @click="getTextColor($event,'#000')"></div>
             <div class="color-item red" @click="getTextColor($event,'#f00')"></div>
@@ -93,15 +91,15 @@
           </div>
         </div> -->
         <div class="edit-item" @click="$parent.retrue">
-          <undo theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiArrowGoBackLine" color="#eee" size="25" />
         </div>
       </div>
       <div class="edit-group zoom" v-if="$parent.canvasVisible">
         <div class="edit-item" @click="$parent.scaleD">
-          <zoom-in theme="outline" size="25" fill="#eee" :strokeWidth="1" />
+          <icon-wrapper name="RiZoomInLine" color="#eee" size="25" />
         </div>
         <div class="edit-item" @click="$parent.scaleX">
-          <zoom-out theme="outline" size="25" fill="#eee" :strokeWidth="1" />
+          <icon-wrapper name="RiZoomOutLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
           {{parseInt($parent.scaleCount*100)}}%
@@ -109,34 +107,34 @@
       </div>
       <div class="edit-group pag" v-if="$parent.canvasVisible">
         <div class="edit-item" @click="$parent.prePage">
-          <left theme="outline" size="25" fill="#eee" :strokeWidth="1" />
+          <icon-wrapper name="RiArrowLeftSLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
           {{$parent.pageNum}} / {{$parent.pdfPages}}
         </div>
         <div class="edit-item"  @click="$parent.nextPage">
-          <right theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiArrowRightSLine" color="#eee" size="25" />
         </div>
       </div>
       <div class="edit-group">
         <div class="edit-item dld" @click="$parent.saveEditedImage(watermarktext)">
-          <download theme="outline" size="25" fill="#eee" :strokeWidth="1"/>
+          <icon-wrapper name="RiDownloadLine" color="#eee" size="25" />
         </div>
         <input type="text" id="download-add-watermark" :class="{'edit-input d-watermark':true,'wmshow':watermarktext}" placeholder="默认无水印" v-model="watermarktext"/>
         <div class="edit-item" v-show="false" @click="autocreate_show=!autocreate_show">
           <IconWrapper  iconName="RobotTwo" theme="outline" :strokeWidth='1' defaultColor="#eee" size="25" />
         </div>
         <div class="edit-item" @click="codebar_show=!codebar_show">
-          <IconWrapper iconName="PayCodeTwo" theme="outline" :strokeWidth='1' defaultColor="#eee" size="25" />
+          <IconWrapper name="RiBarcodeBoxLine" color="#eee" size="25" />
         </div>
         <div class="edit-item" @click="canvas2fullscreen">
-          <IconWrapper v-if="fullscreen" iconName="OffScreen" theme="filled" :strokeWidth='1' defaultColor="#eee" size="25" />
-          <IconWrapper v-else iconName="FullScreen" theme="filled" :strokeWidth='1' defaultColor="#eee" size="25" />
+          <IconWrapper v-if="fullscreen" name="RiFullscreenExitLine" theme="filled" color="#eee" size="25" />
+          <IconWrapper v-else name="RiFullscreenLine" color="#eee" size="25" />
         </div>
         
       </div>  
       <div class="box-drag" @mousedown="dragdown($event,'toolsbox')"  @mouseup="dragup">
-        <drag theme="outline" size="25" fill="#aaa" :strokeWidth="1"/>
+        <icon-wrapper name="RiDraggable" size="25" color="#aaa"/>
       </div>
     </div>
   </div>
@@ -148,7 +146,6 @@
 
 <script>
 import { defineComponent } from 'vue'
-import { ZoomIn,ZoomOut,Pencil,Undo,RectangleOne,MoveOne,HighLight,Left,Right,Drag,Download,PictureOne} from '@icon-park/vue-next';
 
 import JsBarcode from 'jsbarcode';
 
@@ -170,21 +167,6 @@ export default defineComponent ({
       codebar_show:false,
       barcode_url:null
     }
-  },
-  components: {
-    ZoomIn,
-    ZoomOut,
-    Pencil,
-    Undo,
-    RectangleOne,
-    MoveOne,
-    HighLight,
-    Left,
-    Right,
-    Drag,
-    Download,
-    // TextStyle,
-    PictureOne
   },
 
   watch: {
@@ -392,10 +374,11 @@ export default defineComponent ({
 
 .edit-item {
   display: inline-block;
-  padding: 5px 6px;
+  padding: 5px 6px 6px 6px;
   margin: 0 2px;
   border-radius: 4px;
   pointer-events: auto;
+  line-height: 0;
 }
 
 .edit-input{
