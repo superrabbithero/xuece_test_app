@@ -3,15 +3,17 @@ import packageApi from '@/api/endpoints/package'
 
 export const usePackageStore = defineStore('package', {
   state: () => ({
+    curFilter:{appname: '0',system:null,page:1,per_page:10},
     packages: [],
     pagination: {},
     isLoading:false
   }),
   
   actions: {
-    async fetchPackages(params) {
+    async fetchPackages() {
+      
       this.isLoading = true
-      const res = await packageApi.getPackages(params)
+      const res = await packageApi.getPackages(this.curFilter)
       this.isLoading = false
       this.packages = res?.data?.packages
       this.pagination = {
@@ -33,13 +35,16 @@ export const usePackageStore = defineStore('package', {
         // 添加默认值
         const completePackageData = {
           ar: 'x64',
-          status: 0,
           comment: '',
           appname: '',
           ...packageData
         }
         
         const response = await packageApi.createPackage(completePackageData)
+        this.curFilter.appname = completePackageData.appname
+        this.curFilter.page = 1
+        this.fetchPackages()
+
         return response
       } catch (error) {
         console.error('创建软件包失败:', error)
@@ -47,10 +52,15 @@ export const usePackageStore = defineStore('package', {
       }
     },
 
-    async updatePackage(id, packageData) {
+    async updatePackage(index, id, packageData) {
       try {
-        const response = await packageApi.updatePackage(id, packageData)
-        return response
+        if(this.packages[index].id == id){
+          const response = await packageApi.updatePackage(id, packageData)
+          const newPkg = await this.getPackage(id)
+          console.log('newPkg',newPkg)
+          this.packages[index] = newPkg
+          return response
+        }          
       } catch (error) {
         console.error('更新软件包信息失败:', error)
         throw error
@@ -70,6 +80,7 @@ export const usePackageStore = defineStore('package', {
     async getPackage(id) {
       try {
         const res = await packageApi.getPackageById(id); // 添加 await
+        console.log(res.data.package)
         return res.data.package; // 返回 Promise 的结果
       } catch (error) {
         console.error('查询软件包失败:', error);

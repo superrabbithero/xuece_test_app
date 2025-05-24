@@ -71,25 +71,6 @@
             </div>
           </div>
         </div>
-        <!-- <div id="mark" :class="[type=='mark'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <div v-if="type=='mark'" class="text-editbox">
-            <input id="watermark-text" type="text" value="水印" />
-            <button @click="watermark()" >创建水印</button>
-          </div>
-        </div> -->
-        <!-- <div id="text" :class="[type=='text'?'edit-item active':'edit-item']" @click="switchtools($event)" style="display:none">
-          <div v-if="type=='text'" class="text-editbox">
-            <div class="color-item black active" @click="getTextColor($event,'#000')"></div>
-            <div class="color-item red" @click="getTextColor($event,'#f00')"></div>
-            <div class="color-item orange" @click="getTextColor($event,'#ffa500')"></div>
-            <div class="color-item yellow" @click="getTextColor($event,'#ff0')"></div>
-            <div class="color-item green" @click="getTextColor($event,'#90ee90')"></div>
-            <div class="color-item blue" @click="getTextColor($event,'#87ceeb')"></div>
-
-            <input type="text" value="宋体" />
-            <input type="text" value="25" />
-          </div>
-        </div> -->
         <div class="edit-item" @click="$parent.retrue">
           <icon-wrapper name="RiArrowGoBackLine" color="#eee" size="25" />
         </div>

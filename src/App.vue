@@ -11,7 +11,7 @@
                 答题卡生成
               </div>
               <div class="menu-item" @click="goto('/AppManage')">
-                <icon-wrapper name="RiApps2AddLine"  size="19" />
+                <icon-wrapper name="RiInstanceLine"  size="19" />
                 学测应用管理
               </div>
               <div class="menu-item" @click="goto('/AppManage')">
@@ -19,10 +19,10 @@
                 脚本管理
               </div>
               
-              <div class="menu-item" >
-                <!-- <svg-icon name="roadblock11" /> -->
+              <!-- <div class="menu-item" >
+                <svg-icon name="roadblock11" />
                 待定...
-              </div>
+              </div> -->
             </div>
           </div>
         </transition>
@@ -223,6 +223,7 @@ const changeStyle = () => {
   border-radius:12px;
   padding: 15px 0;
   background-color: var(--content-bgc);
+  box-shadow: var(--box-shadow);
 }
 
 @media (any-hover:hover){

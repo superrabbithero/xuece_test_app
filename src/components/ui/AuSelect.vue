@@ -15,50 +15,55 @@
   </div>
 </template>
 
-<script>
-export default {
-  props: {
-    dataList:{
-      type: Array,
-      required: true
-    },
-  },
-  data(){
-    return{
-      selectShow:false,
-      currIndex:0
-    }
-  },
-  mounted(){
+<script setup>
+import { ref, defineProps, defineEmits, onUnmounted } from 'vue'; // 注意：是 onUnmounted 不是 unmounted
 
+const emit = defineEmits(['change']) // 应该使用数组形式
+
+const props = defineProps({
+  dataList: {
+    type: Array,
+    required: true
   },
-  unmounted(){
-    document.removeEventListener('click',this.closeSelect)
-  },
-  methods: {
-    openSelect(){
-      if(!this.selectShow){
-        this.selectShow = true
-        document.addEventListener('click',this.closeSelect)
-      }else{
-        this.selectShow = false
-        document.removeEventListener('click',this.closeSelect)
-      }
-    },
-    closeSelect(){
-      if(!this.$refs.selectBox.contains(event.target)){
-        this.selectShow = false
-        document.removeEventListener('click',this.closeSelect)
-      }
-    },
-    changeIndex(index){
-      this.currIndex = index
-      this.selectShow = false
-      document.removeEventListener('click',this.closeSelect)
-      this.$emit('change', this.currIndex);
-    }
-  }  
-};
+  modelValue: { // 添加 modelValue 以支持 v-model
+    type: Number,
+    default: 0
+  }
+})
+
+const selectShow = ref(false)
+const currIndex = ref(props.modelValue) // 使用传入的 props 初始化
+
+// 修正生命周期钩子名称
+onUnmounted(() => {
+  document.removeEventListener('click', closeSelect)
+})
+
+const openSelect = () => {
+  selectShow.value = !selectShow.value
+  if(selectShow.value) {
+    document.addEventListener('click', closeSelect)
+  } else {
+    document.removeEventListener('click', closeSelect)
+  }
+}
+
+const closeSelect = (event) => { // 添加 event 参数
+  if(!selectBox.value.contains(event.target)) {
+    selectShow.value = false
+    document.removeEventListener('click', closeSelect)
+  }
+}
+
+const changeIndex = (index) => {
+  currIndex.value = index
+  selectShow.value = false
+  document.removeEventListener('click', closeSelect)
+  emit('change', index)
+  emit('update:modelValue', index) // 支持 v-model
+}
+
+const selectBox = ref(null) // 添加模板引用
 </script>
 
 <style scoped>

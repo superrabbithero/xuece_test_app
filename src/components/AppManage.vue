@@ -29,7 +29,7 @@
           </thead>
           <tbody>
             <div v-show="packageStore.isLoading">更新中请稍候</div>                 
-            <tr class="table-tr" v-for="pkg in packageStore.packages" :key="pkg.id">
+            <tr class="table-tr" v-for="(pkg, index) in packageStore.packages" :key="pkg.id">
               <td style="display: flex;gap:10px;">
                 <img :src="pkg.icon?.url || getPkgUrl(pkg.appname)" alt="应用图标" class="table-icon" />
                 <div class="td-content">
@@ -45,14 +45,14 @@
                 <div v-else class="commentcol" >-</div>
               </td>
               <td style="width:4rem">
-                <input type="checkbox" v-model="pkg.is_debug" @click.prevent="openChangeIsDebugConfirm(pkg)"/>{{pkg.is_debug}}
+                <input type="checkbox" v-model="pkg.is_debug" @click.prevent="openChangeIsDebugConfirm(index,pkg)"/>
               </td>
               <td style="min-width: 150px">
                 <icon-wrapper class="table-do"  name="RiDownloadLine" size="20" @click="downloadFile(pkg.oss_key, pkg.name)"/>
                 <!-- <a :href="'../static/app/' + pkg.packagename" download class="mybtn">下载</a> -->
                 <icon-wrapper v-if="pkg.icon?.url" @click="openQrCode(pkg)" class="table-do"  name="RiQrCodeFill" size="20" />
                 <!-- <a href="#"  class="mybtn" >二维码</a> -->
-                <icon-wrapper v-if="isLogin" @click="openEditor(pkg)" class="table-do"  name="RiDraftLine" size="20" />
+                <icon-wrapper v-if="isLogin" @click="openEditor(index)" class="table-do"  name="RiDraftLine" size="20" />
                 <icon-wrapper v-if="isLogin" @click="openConfirmModal(`确认删除“${pkg.name}”的信息?`,() => deletePackage(pkg.id))" class="table-do"  name="RiDeleteBinLine" theme="outline" :strokeWidth='3' size="20" />
               </td>
             </tr>
@@ -214,7 +214,7 @@ const appNameInfo = {
 const systemList = ref(['全部','ios','android','鸿蒙','Win','平板'])
 // const versionList = ref(['全部'])
 const arList = ref(['全部'])
-var filterPram = {appname: '0',system:null,page:1,per_page:10}
+// var packageStore.curFilter = {appname: '0',system:null,page:1,per_page:10}
 // const packages = ref([])
 const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
 
@@ -235,7 +235,9 @@ const curPackage = ref(null)
 const confirmData = ref({show:false,title:null,function:null})
 
 const curPkgIsUpdate = computed(()=>{
-  return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
+  // return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != curPackage.value.origin.name ) || curPackage.value.comment != curPackage.value.origin.comment)
+  const pkg = packageStore.packages[curPackage.value.index]
+  return curPackage.value.name != "" && curPackage.value && ((curPackage.value.name != pkg.name ) || curPackage.value.comment != pkg.comment)
 })
 
 const toPage = (path) => {
@@ -295,7 +297,7 @@ const isLogin = ref(false)
 
 onMounted(() => {
   // console.log(process.env.VUE_APP_BASE_URL)
-  packageStore.fetchPackages(filterPram)
+  packageStore.fetchPackages()
   if(localStorage.getItem('token')){
     isLogin.value = true
   }
@@ -343,16 +345,17 @@ const parsePackage = () => {
       toast('仅支持上传.apk、.ipa、.exe文件', { type: 'error' })
     }
   }else{
-    toast('没有找到文件', { type: 'error' })
+    // toast('没有找到文件', { type: 'error' })
   }
 }
 
 const changeAppType = (index) => {
-  filterPram.appname = `${index}`
+  console.log(packageStore.curFilter)
+  packageStore.curFilter.appname = `${index}`
   systemList.value = ['全部', ...Object.values(appNameInfo)
         .filter(item => item.appName === index)
         .map(item => item.system)];
-  packageStore.fetchPackages(filterPram)
+  packageStore.fetchPackages()
 }
 
 // const changeVersion = (index) => {
@@ -364,8 +367,8 @@ const changeAr = (index) => {
 }
 
 const changeSystem = (index) => {
-  filterPram.system = index == 0 ? null : systemList.value[index]
-  packageStore.fetchPackages(filterPram)
+  packageStore.curFilter.system = index == 0 ? null : systemList.value[index]
+  packageStore.fetchPackages()
 }
 
 const uploadFile = () => {
@@ -412,7 +415,7 @@ const uploadFile = () => {
       packageInfoJson.create_time = Date.now()
       
       packageStore.createPackage(packageInfoJson).then(() => {
-        packageStore.fetchPackages(filterPram)
+        packageStore.fetchPackages()
         clearFile()
         modal_show.value.fileUpload_show = false
       }).catch(error => {
@@ -431,7 +434,7 @@ const uploadFile = () => {
 const deletePackage = async (id) => {
   packageStore.deletePackage(id).then(() => {
     
-    packageStore.fetchPackages(filterPram)
+    packageStore.fetchPackages()
   }).catch(error => {
     console.error('删除失败', error);
   })
@@ -488,8 +491,10 @@ const cancelUpload = () => {
   clearFile()
 }
 
-const openEditor = ( pkg ) => {
-  curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,origin:{name:pkg.name,comment:pkg.comment}}
+const openEditor = ( index ) => {
+  // curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,origin:{name:pkg.name,comment:pkg.comment}}
+  const pkg = packageStore.packages[index]
+  curPackage.value = {id:pkg.id, name:pkg.name,comment:pkg.comment,index:index}
   modal_show.value.editor_show = true;
   // console.log(modal_show.value.editor_show)
 }
@@ -506,33 +511,40 @@ const formatDateTime = (dateStr) => {
 
 const updatePackageInfo = () => {
 
+  const pkg = packageStore.packages[curPackage.value.index]
+
   const updateData = {
-    name:curPackage.value.name == curPackage.value.origin.name ? null:curPackage.value.name, 
-    comment:curPackage.value.comment == curPackage.value.origin.comment ? null:curPackage.value.comment
+    name:curPackage.value.name == pkg.name ? null:curPackage.value.name, 
+    comment:curPackage.value.comment == pkg.comment ? null:curPackage.value.comment
   }
 
-  packageStore.updatePackage(curPackage.value.id, updateData).then(()=>{
+  packageStore.updatePackage(curPackage.value.index, curPackage.value.id, updateData).then(()=>{
     modal_show.value.editor_show = false
-    packageStore.fetchPackages(filterPram)
   }).catch(error => {
     console.error('修改失败',error)
   })
 
 }
 
-const openChangeIsDebugConfirm = (pkg) => {
-  curPackage.value = pkg
-  openConfirmModal(`确认将“${pkg.name}”变更为${pkg.is_debug? '正式包':'调试包'}?`, changeIsDebug)
+const openChangeIsDebugConfirm = (index, pkg) => {
+  if(isLogin.value){
+    curPackage.value = pkg
+    openConfirmModal(`确认将“${pkg.name}”变更为${pkg.is_debug? '正式包':'调试包'}?`, ()=>changeIsDebug(index))
+  }
 }
 
-const changeIsDebug = () => {
+const changeIsDebug = (index) => {
+  // console.log(index)
+  // packageStore.packages[index].is_debug = !packageStore.packages[index].is_debug
+  // packageStore.packages[index]
+
   packageStore
-    .updatePackage(curPackage.value.id, {
+    .updatePackage(index, curPackage.value.id, {
       is_debug:!curPackage.value.is_debug
     })
     .then(()=>{
       modal_show.value.editor_show = false
-      packageStore.fetchPackages(filterPram)
+      console.log(packageStore.packages)
     })
     .catch(error => {
       console.error('修改失败',error)

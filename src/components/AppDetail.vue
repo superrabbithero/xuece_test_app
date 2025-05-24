@@ -3,7 +3,7 @@
   <div class="au-layout container" style="padding:1rem">
     <div v-if="packageInfo" class="rows center">
       <div class="cols center s12">
-        <img :src="packageInfo.icon_url" alt="应用图标" class="app-icon" />
+        <img :src="packageInfo.icon.url" alt="应用图标" class="app-icon" />
       </div>
       <div class="cols center s12">
         <h3>{{appTypeList[parseInt(packageInfo.appname)]}}</h3>
@@ -13,7 +13,7 @@
         <div style="font-size: 14px;margin-left: 5px">{{systemInfo.content}}</div>
       </div>
       <div class="cols center s12">
-          <au-qrcode class="qrcode" :qrValue="qrCodeValue" :size="100" level="Q" :logo="{src:packageInfo.icon_url,width:32,height:32,margin:0}"/>
+          <au-qrcode class="qrcode" :qrValue="qrCodeValue" :size="100" level="Q" :logo="{src:packageInfo.icon.url,width:32,height:32,margin:0}"/>
         
       </div>
       <div class="cols center s12">
