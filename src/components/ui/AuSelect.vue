@@ -1,8 +1,8 @@
 <template>
   <div class="select-box" ref="selectBox">
+    <div v-if="label" class="label">{{label}}</div>
     <div :class="{'input-area':true,'active':selectShow}" @click="openSelect">
       <div class="list-value">{{dataList[currIndex]}}</div>
-      <!-- <svg-icon name="arrow-down" size="16" :class="{'icon':true,'show':selectShow}" ></svg-icon> -->
       <IconWrapper name="RiArrowDownSLine" size="16" :class="{'icon':true,'show':selectShow}"/>
     </div>
     <div :class="{'select-item-group':true,'show':selectShow}" ref="options">
@@ -28,6 +28,10 @@ const props = defineProps({
   modelValue: { // 添加 modelValue 以支持 v-model
     type: Number,
     default: 0
+  },
+  label: {
+    type: String,
+    default: null
   }
 })
 
@@ -70,21 +74,42 @@ const selectBox = ref(null) // 添加模板引用
   .select-box {
     width: 100%;
     position: relative;
+    margin-top: 6px;
+    background-color: var(--box-bgc);
   }
+  .label {
+    position: absolute;
+    font-size: 10px;
+    background-color: var(--box-bgc);
+    /* background-color: red; */
+    font-weight: 100;
+    height: 3px;
+    line-height: 3px;
+    padding: 0 4px;
+    top: -2px;
+    left: 6px;
+  }
+
   .input-area {
+    font-size: 14px;
     border: var(--box-border);
-    padding: 0 5px;
-    font-size: 15px;
-    border-radius: 5px;
-    height: 28px;
-    line-height: 28px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    /* height: 28px; */
+    /* line-height: 28px; */
     display: flex;
     align-items: center;
     justify-content: space-between;
+    font-weight: 500;
+  }
 
+  .list-value{
+    height: 20px;
+    line-height: 20px;
   }
   .input-area.active{
-    outline: 2px solid var(--main-color);
+    outline: 1px solid var(--main-color);
+    border: 1px solid var(--main-color)
   }
 
   .icon {
@@ -100,8 +125,9 @@ const selectBox = ref(null) // 添加模板引用
     transform: rotate(180deg);
   }
   .select-item-group{
-    padding: 4px 0;
-    top: 36px;
+    /* padding: 4px 0; */
+    /* padding-bottom: 4px; */
+    top: 40px;
     position: absolute;
     z-index: 999;
     width: 100%;
@@ -120,14 +146,44 @@ const selectBox = ref(null) // 添加模板引用
   .options {
     overflow: auto;
     max-height: 0px;
-    transition: max-height 0.1s ease;
+    transition: max-height 0.2s ease;
   }
+  .options::-webkit-scrollbar{
+    width: 4px;
+  }
+
+  .options::-webkit-scrollbar-track{
+    /* background: red; */
+  }
+
+  .options::-webkit-scrollbar-thumb{
+    /* background-color: var(--scrollbar-thumb-bgc); */
+    background-color: #fff0;
+    /* opacity: 0!important; */
+  }
+
+  .options:hover::-webkit-scrollbar-thumb{
+    background-color: var(--scrollbar-thumb-bgc);
+  }
+  
   .options.show {
     max-height: 140px;
   }
 
   .select-item{
-    padding: 4px 5px;
+    margin: 0 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .select-item:last-child {
+    margin-bottom: 4px;
+  }
+
+  .select-item:first-child {
+    margin-top: 4px;
   }
 
   .select-item.active{
@@ -139,7 +195,8 @@ const selectBox = ref(null) // 添加模板引用
       background-color: var(--white-highlight);
     }
     .input-area:hover{
-      outline: 2px solid var(--main-color);
+      outline: 1px solid var(--main-color);
+      border: 1px solid var(--main-color)
     }
   }
 </style>

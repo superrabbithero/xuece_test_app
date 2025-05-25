@@ -150,7 +150,7 @@ img {
   --dashed-color:#555;
   --select-bgc:#212121;
   --layout-bgc  : #46494d;
-  --main-color : #c89f3d;  
+  /* --main-color : #c89f3d;   */
   --content-bgc:#18171d;
   /*  内容的背景颜色*/
   --box-bgc:#1b1c20;
@@ -632,20 +632,23 @@ input[type="color"] {
 input[type="button"] {
     width: auto;
     padding: 5px 20px;
-    color:var(--fontNormal);
-
+    /* color:var(--fontNormal); */
+    color:#fff;
 }
 
 input[type="button"].circle {
     padding:5px 10px;
     height: 28px;
-    border-radius: 14px;
+    border-radius: 18%;
 }
 
 input[type="button"].fill {
     border-color: var(--main-color);
     background-color: var(--main-color); 
-    color: var(--box-bgc);
+    /* color: var(--box-bgc); */
+}
+input[type="button"].fill:hover {
+    background-color:#ffb60a;
 }
 
 input[type="button"].fill:active {

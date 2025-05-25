@@ -2,15 +2,15 @@
   <div class="au-layout">
     <div class="rows space-between">
       <div class="cols filter-bar">
-        <au-select class="filter-select" :dataList="appTypeList" @change="changeAppType"></au-select>
+        <au-select class="filter-select" label="类型" :dataList="appTypeList" @change="changeAppType"></au-select>
         <!-- <au-select class="filter-select" :dataList="versionList" @change="changeVersion"></au-select> -->
         
-        <au-select class="filter-select" :dataList="systemList" @change="changeSystem"></au-select>
-        <au-select class="filter-select" :dataList="arList" @change="changeAr"></au-select>
+        <au-select class="filter-select" label="设备"  :dataList="systemList" @change="changeSystem"></au-select>
+        <au-select class="filter-select" label="环境" :dataList="arList" @change="changeAr"></au-select>
       </div>
       <div class="cols">
-        <input v-if="isLogin" type="button" class="fill" value="添加应用" @click="modal_show.fileUpload_show = true"/>
-        <input v-else type="button" title="需登陆后才能上传和编辑文件" class="fill" @click="toPage('/login')" value="登 录"/>
+        <au-button v-if="isLogin" class="small fill" iconName="RiAddLine" value="添加应用" @click="modal_show.fileUpload_show = true"/>
+        <au-button v-else title="需登陆后才能上传和编辑文件" class="small fill" @click="toPage('/login')" value="登 录"/>
       </div>
     </div>
     <div class="rows table-content">
@@ -133,8 +133,8 @@
           </div>
         </div>
         <div class="cols s12 end">
-          <input type="button" value="取消" style="margin-right:5px" @click="cancelUpload()">
-          <input type="button" class="fill" value="上传" @click="uploadFile">
+          <au-button class="small" value="取消" style="margin-right:5px" @click="cancelUpload()"/>
+          <au-button class="small fill" value="上传" @click="uploadFile"/>
         </div>
       </div>
     </div>
@@ -153,8 +153,10 @@
           <textarea class="eidtor_comment" rows="5" type="text" v-model="curPackage.comment"></textarea>
         </div>
         <div class="cols s12 end">
-          <input type="button" value="取消" style="margin-right:5px" @click="modal_show.editor_show = false">
-          <input type="button" :class="{'fill':true,'unable':!curPkgIsUpdate}" @click="updatePackageInfo()" value="确认" >
+          <au-button value="取 消" class="small" style="margin-right:5px" @click="modal_show.editor_show = false"/>
+          <!-- <input type="button" :class="{'fill':true,'unable':!curPkgIsUpdate}" @click="updatePackageInfo()" value="确认" > -->
+          <!-- <au-button type="button" class="small disabled" size="small" :disabled="!curPkgIsUpdate" @click="updatePackageInfo()" value="确认" /> -->
+          <au-button :class="{'fill small':true, 'disabled':!curPkgIsUpdate}" @click="updatePackageInfo()" value="确 认" />
         </div>
       </div>
     </div>
