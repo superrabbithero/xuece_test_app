@@ -3,7 +3,7 @@ import packageApi from '@/api/endpoints/package'
 
 export const usePackageStore = defineStore('package', {
   state: () => ({
-    curFilter:{appname: '0',system:null,page:1,per_page:10},
+    curFilter:{appname: '0',system:null,is_debug:null,page:1,per_page:10},
     packages: [],
     pagination: {},
     isLoading:false

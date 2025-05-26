@@ -6,7 +6,7 @@
         <!-- <au-select class="filter-select" :dataList="versionList" @change="changeVersion"></au-select> -->
         
         <au-select class="filter-select" label="设备"  :dataList="systemList" @change="changeSystem"></au-select>
-        <au-select class="filter-select" label="环境" :dataList="arList" @change="changeAr"></au-select>
+        <au-select class="filter-select" label="环境" :dataList="isDebugList" @change="changeIsDebugSelect"></au-select>
       </div>
       <div class="cols">
         <au-button v-if="isLogin" class="small fill" iconName="RiAddLine" value="添加应用" @click="modal_show.fileUpload_show = true"/>
@@ -215,7 +215,7 @@ const appNameInfo = {
 }
 const systemList = ref(['全部','ios','android','鸿蒙','Win','平板'])
 // const versionList = ref(['全部'])
-const arList = ref(['全部'])
+const isDebugList = ref(['全部','调试包','正式包'])
 // var packageStore.curFilter = {appname: '0',system:null,page:1,per_page:10}
 // const packages = ref([])
 const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
@@ -364,8 +364,15 @@ const changeAppType = (index) => {
 //   console.log(`changeVersion(${index}),${versionList.value[index]}`)
 // }
 
-const changeAr = (index) => {
-  console.log(`changeAr(${index}),${arList.value[index]}`)
+const changeIsDebugSelect = (index) => {
+  if(index == 0){
+    packageStore.curFilter.is_debug = null
+  }else if(index == 1){
+    packageStore.curFilter.is_debug = 1
+  }else if(index == 2){
+    packageStore.curFilter.is_debug = 0
+  }
+  packageStore.fetchPackages()
 }
 
 const changeSystem = (index) => {
