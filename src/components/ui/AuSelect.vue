@@ -75,19 +75,20 @@ const selectBox = ref(null) // 添加模板引用
     width: 100%;
     position: relative;
     margin-top: 6px;
-    background-color: var(--box-bgc);
+    
   }
   .label {
     position: absolute;
     font-size: 10px;
     background-color: var(--box-bgc);
-    /* background-color: red; */
+/*     background-color: red; */
+    border-top: 1px solid var(--content-bgc);
     font-weight: 100;
-    height: 3px;
-    line-height: 3px;
-    padding: 0 4px;
-    top: -2px;
-    left: 6px;
+    height: 1px;
+    line-height: 1px;
+    padding: 0 3px;
+    top: -1px;
+    left: 7px;
   }
 
   .input-area {
@@ -95,6 +96,7 @@ const selectBox = ref(null) // 添加模板引用
     border: var(--box-border);
     padding: 6px 8px;
     border-radius: 8px;
+    background-color: var(--box-bgc);
     /* height: 28px; */
     /* line-height: 28px; */
     display: flex;

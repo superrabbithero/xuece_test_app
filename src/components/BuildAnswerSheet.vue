@@ -142,7 +142,7 @@
                       left:cutDivScale*section.rect.x + 'px'}">
               <div class="cutpage-section sub" v-for="(subsection,index) in section.subsections" :key="index" :style="hasFreeStyleGroupsSubsectionStyle(subsection)">
                       <!-- <div class="cutpage-section sub remove">
-                        {{subsection.x}},{{subsection.y}}
+                        {{subsection.x}}{{subsection.y}}
                       </div> -->
                       <div class="cutpage-section" v-for="(freeStyleCellGroup,index) in subsection.freeStyleCellGroups" :key="index">
                         <div class="cutpage-section sub" v-for="(freeStyleCell, index) in freeStyleCellGroup" :key="index" :style="{ width:'1px',height:'1px',
@@ -170,870 +170,904 @@
 
 
 
-<script>
+<script setup>
 import * as pdfjsLib from "pdfjs-dist";
 
 import EditToolsBox from "@/components/EditToolsBox.vue";
 import key from 'keymaster'
 import {getanswercard} from "@/assets/js/xueceapi.js"
 
+import {ref, computed, onMounted, nextTick, inject, provide, watch} from 'vue'
 
+const toast = inject('toast')
 
-export default {
-  data() {
-    return {
-      images: [],
-      data_style:"move",
-      canvasVisible: false,
-      pdfDoc: null,
-      pageNum: 1,
-      penColor: "#000",
-      hlpenColor: "#000",
-      penWidth: 4,
-      hlpenWidth: 20,
-      penClick: false,
-      startAxisX: 0,
-      startAxisY: 0,
-      controlPointX: 0,
-      controlPointY: 0,
-      points:[],
-      beginPoint:{x:0,y:0},
-      history: [],
-      historys: [],
-      canvas: null,
-      ctx: null,
-      undo: false,
-      pdfPages: 0,
-      scaleCount: 0.5,
-      widthTemp: 0,
-      heightTemp: 0,
-      // h : window.innerHeight,
-      clientHeight: document.documentElement.clientHeight - 145,
+// 基本数据类型使用ref
+const images = ref([])
+const data_style = ref("move")
+const canvasVisible = ref(false)
+const pdfDoc = ref(null)
+const pageNum = ref(1)
+const penColor = ref("#000")
+const hlpenColor = ref("#000")
+const penWidth = ref(4)
+const hlpenWidth = ref(20)
+const penClick = ref(false)
+const startAxisX = ref(0)
+const startAxisY = ref(0)
+const controlPointX = ref(0)
+const controlPointY = ref(0)
+const points = ref([])
+const beginPoint = ref({x:0, y:0})
+// const history = ref([])
+const historys = ref([])
+const cur_canvas = ref(null)
+const ctx = ref(null)
+const undo = ref(false)
+const pdfPages = ref(0)
+const scaleCount = ref(0.5)
+const widthTemp = ref(0)
+const heightTemp = ref(0)
+const clientHeight = ref(document.documentElement.clientHeight - 145)
+const draged = ref(false)
+const disx = ref(0)
+const disy = ref(0)
+const canvasX = ref(0)
+const canvasY = ref(0)
+const filename = ref('')
+const draggedImageDom = ref(null)
+const cutparamshow = ref(false)
+const anchorxy = ref({x:0, y:0})
+const cutParamJsonStr = ref("")
+const cutParamJson = ref({})
+const pdfUrl = ref(null)
+const cutDivScale = ref(1)
+const papertype = ref(0)
+const paperid = ref(18079)
+const env = ref(1)
+const fillObj = ref(true)
+const fillSubj = ref(true)
+const fillNum = ref(true)
+const fillError = ref(0)
+const barcode_url = ref(null)
+const optionOffset = ref([0])
 
-      // 控制小手拖动
-      draged : false,
-      disx: 0,
-      disy: 0,
-      // 同步所有图片的拖动位置
-      canvasX: 0,
-      canvasY: 0,
+const cutparampanel = ref(null)
+const cutparampage = ref(null)
+const pdfcanvas = ref(null)
+const canvasbox = ref(null)
+const uploadpdf = ref(null)
+const imageRefs = ref(null)
 
-      //回显pdffilename
-      filename: '',
+// 嵌套对象使用ref包装整个对象
+const modal_show = ref({
+  json_show: false,
+  fill_show: false,
+  linkxuecemodal_show: false,
+})
 
-      //拖拽图片
-      draggedImageDom: null,
+watch(
+  cur_canvas.value, 
+  (newVal, oldVal) => {
+    console.log(oldVal,"=>", newVal)
+})
 
-      //识别点信息
-      cutparamshow:false,
-      anchorxy:{x:0,y:0},
-      // cutParamJson:null,
-      cutParamJsonStr:"",
-      cutParamJson:{},
-      pdfUrl:null,
-      cutDivScale:1,
-      //关联xuece考试作业先相关参数
-      
-      papertype:0,
-      paperid:18079,
-      env:1,
-
-      //模态框
-      modal_show:{
-        json_show:false,
-        fill_show:false,
-        linkxuecemodal_show:false,
-      },
-
-      //填涂选项
-      fillObj:true,
-      fillSubj:true,
-      fillNum:true,
-      fillError:0,
-
-      //条形码图片地址
-      barcode_url:null,
-
-      //填图客观题时，0为A,1为B类推
-      optionOffset:[0]
-    };
-  },
-  components: {
-    EditToolsBox
-  },
-  computed:{
-    hasFreeStyleGroupsSubsectionStyle(){
-      return (subsection) => {
-        if(subsection.freeStyleCellGroups){
-          return { width:'0', height:'0', top:this.cutDivScale*subsection.y + 'px', left:this.cutDivScale*subsection.x + 'px',border:'none',boxSizing:'border-size'}
-        }else{
-          return { width:'1px', height:'1px', top:this.cutDivScale*subsection.y + 'px', left:this.cutDivScale*subsection.x + 'px'}
-        }
+const hasFreeStyleGroupsSubsectionStyle = computed(() => {
+  return (subsection) => {
+    if (subsection.freeStyleCellGroups) {
+      return { 
+        width: '0', 
+        height: '0', 
+        top: cutDivScale.value * subsection.y + 'px', 
+        left: cutDivScale.value * subsection.x + 'px',
+        border: 'none',
+        boxSizing: 'border-size'
+      }
+    } else {
+      return { 
+        width: '1px', 
+        height: '1px', 
+        top: cutDivScale.value * subsection.y + 'px', 
+        left: cutDivScale.value * subsection.x + 'px'
       }
     }
-  },
-  mounted() {
-    window.onresize = () => {
-        this.clientHeight = document.documentElement.clientHeight - 145;
+  }
+})
+
+
+onMounted(() => {
+  // 窗口大小变化监听
+  window.onresize = () => {
+    clientHeight.value = document.documentElement.clientHeight - 145
+  }
+
+  // 快捷键绑定
+  key('⌘+z, ctrl+z', () => {
+    retrue()
+  })
+
+  key('⌘+s, ctrl+s', () => {
+    saveEditedImage()
+  })
+})
+
+
+const formattedJsonStr = () => {
+  try{
+    cutParamJson.value = JSON.parse(cutParamJsonStr.value)
+    // console.log(cutParamJsonStr.value)
+    cutParamJsonStr.value = JSON.stringify(cutParamJson.value, null, 4);
+    console.log(JSON.stringify(cutParamJson.value).replace(/\s+/g, ''))
+  }catch(error){
+    cutParamJson.value = {"code":"error","msg":error}
+  }
+}
+
+const changeOptionOffset = (index) => {
+  console.log(index)
+  switch(index){
+    case 0: optionOffset.value = [0];break;
+    case 1: optionOffset.value = [0,1];break;
+    case 2: optionOffset.value = [0,1,2];break;
+    case 3: optionOffset.value = [0,1,2,3];break;
+  }
+}
+const watermark = (text) => {
+  for(let i=1 ; i <= pdfPages.value ; i++){
+    const canvas = document.getElementById("canvas"+i)
+    const ctx = canvas.getContext("2d");
+    ctx.font = `bold ${canvas.height / 20}px arial`;
+    ctx.fillStyle = 'rgba(255, 0, 0, .1)';
+    // ctx.textBaseline = 'bottom';
+    ctx.transform(1, 0.5, -0.5, 1, 0, -canvas.height / 2);
+
+    let txt = text+" ";
+    const txtHeight = canvas.height / 15;
+    txt = Array(Math.ceil(canvas.width / ctx.measureText(txt).width) * 2).join(txt);
+    for (let i = 0; i < Math.ceil(canvas.height / txtHeight) * 2; i++) {
+      ctx.fillText(txt, 0, i * txtHeight);
     }
-    
 
-    // //禁止空格控制滚动条
-    // document.onkeydown = function(event) {
-    //   var e = window.event || event;
-    //   // console.log(e)
-    //   if(e.keyCode === 32)
-    //     return false
-    // }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    addHistoy(i,canvas)
+    // console.log(i)
+  }
+}
+
+const resizeImgStart = (e, index) => {
+  e.stopPropagation()
+  // const imgElem = this.$refs[`image-${index}`][0]
+  const imgElem = imageRefs.value[index]
+  draggedImageDom.value = imgElem.querySelector('img')
+  disx.value = e.pageX;
+  disy.value = draggedImageDom.value.width
+  window.addEventListener('pointermove', imgResize);
+  window.addEventListener('pointerup', stopResize);
+}
+
+const imgResize = (e) => {
+  if(draggedImageDom.value){
+    draggedImageDom.value.width = disy.value + e.pageX - disx.value
+  }
+}
+
+const stopResize = (e) => {
+  e.stopPropagation()
+  disx.value = 0;
+  disy.value = 0;
+  draggedImageDom.value = null;
+
+  window.removeEventListener('pointermove', imgResize);
+  window.removeEventListener('pointerup', stopResize);
+}
 
 
-    const that = this
-    key('⌘+z, ctrl+z',function(){
-      that.retrue()
-    })
+const darwimg = (index) => {
+  // const imgElem = this.$refs[`image-${index}`][0]
+  const imgElem = imageRefs.value[index]
+  const img = imgElem.querySelector('img')
+  // console.log(img.width)
+  var x = imgElem.offsetLeft
+  var y = imgElem.offsetTop
+  drop(img,x,y)
+  delimg(index)
+}
 
-    key('⌘+s, ctrl+s',function(){
-      that.saveEditedImage()
-    })
+const delimg = (index) => {
+  images.value[index] = null;
+  // console.log(images.value)
+}
 
-  },
+const dragimgdown = (e) => {
+  const el = e.currentTarget
+  draggedImageDom.value = el
+  el.left = 0
+  el.top = 0
+  window.addEventListener('pointermove',dragimgmove)
+  disx.value = e.pageX - el.offsetLeft
+  disy.value = e.pageY - el.offsetTop
+
+  // console.log(el.style.left)
+}
+
+const dragimgmove = (e) => {
+  // var scrolltop = document.documentElement.scrollTop||document.body.scrollTop;
+  if(draggedImageDom.value){
+    const el = draggedImageDom.value
+    // console.log(el)
+    // console.log(el.offsetLeft, el.offsetTop)
+    // console.log(disx,disy)
+    // const ctx = ctx.value;
+    // console.log(stopAxisX,stopAxisY)
+    el.style.left = e.pageX - disx.value + 'px';
+    el.style.top = e.pageY - disy.value + 'px';
+  }      
+}
+
+const dragimgup = () => {
+  // const el = draggedImageDom.value
+  window.removeEventListener('pointermove',dragimgmove)
+  draggedImageDom.value = null
+}
+
+
+
+
+const drop = (img,stopAxisX,stopAxisY) => {
+
   
-  methods: {
-    formattedJsonStr(){
-      try{
-        this.cutParamJson = JSON.parse(this.cutParamJsonStr)
-        // console.log(this.cutParamJsonStr)
-        this.cutParamJsonStr = JSON.stringify(this.cutParamJson, null, 4);
-        console.log(JSON.stringify(this.cutParamJson).replace(/\s+/g, ''))
-      }catch(error){
-        this.cutParamJson = {"code":"error","msg":error}
-      }
-    },
-    changeOptionOffset(index){
-      console.log(index)
-      switch(index){
-        case 0: this.optionOffset = [0];break;
-        case 1: this.optionOffset = [0,1];break;
-        case 2: this.optionOffset = [0,1,2];break;
-        case 3: this.optionOffset = [0,1,2,3];break;
-      }
-    },
-    watermark(text){
-      for(let i=1 ; i <= this.pdfPages ; i++){
-        const canvas = document.getElementById("canvas"+i)
-        const ctx = canvas.getContext("2d");
-        ctx.font = `bold ${canvas.height / 20}px arial`;
-        ctx.fillStyle = 'rgba(255, 0, 0, .1)';
-        // ctx.textBaseline = 'bottom';
-        ctx.transform(1, 0.5, -0.5, 1, 0, -canvas.height / 2);
+  const canvas = cur_canvas.value;
+  // const el = canvasbox.value
+  const ctx = ctx.value;
+  // console.log(stopAxisX,stopAxisY)
+  // var scrolltop = el.scrollTop;
+  // var scrollleft = el.scrollLeft;
+  // console.log(scrolltop,scrollleft)
+  
+  const cl = canvas.offsetLeft
+  const ct = canvas.offsetTop
 
-        let txt = text+" ";
-        const txtHeight = canvas.height / 15;
-        txt = Array(Math.ceil(canvas.width / ctx.measureText(txt).width) * 2).join(txt);
-        for (let i = 0; i < Math.ceil(canvas.height / txtHeight) * 2; i++) {
-          ctx.fillText(txt, 0, i * txtHeight);
+  const x = stopAxisX - cl + 22;
+  const y = stopAxisY - ct + 22;
+
+  // console.log(x,y,img.width)
+
+  ctx.drawImage(img, x/scaleCount.value, y/scaleCount.value, img.width/scaleCount.value, img.height/scaleCount.value);
+
+}
+
+const clickuploadpdf = () => {
+  uploadpdf.value.click()
+  
+}
+const handleFileChange = () => {
+  loadPDF()
+}
+
+const loadPDF = async () => {
+  // NOTE: 这一步要特别注意，网上很多关于pdfjs的使用教程里漏了这一步，会出现workerSrc未定义的错误
+  pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry')
+  // pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/build/pdf.worker.mjs'
+  
+
+  // const uploadpdf = uploadpdf.value
+  const file = uploadpdf.value.files[0];
+  if (file) {
+    filename.value = file.name
+    historys.value = []
+    if(filename.value.split('.').slice(-1)[0].toLowerCase()=='pdf'){
+      const reader = new FileReader();
+      canvasVisible.value = true
+      reader.onload = async (e) => {
+        const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
+        loadingTask.promise.then((pdf) => {
+          pdfDoc.value = pdf
+          pdfPages.value = pdfDoc.value.numPages
+          nextTick(() => {
+            // this.initPages()
+            renderPage(pageNum.value)
+          })
+        })
+      };
+      reader.readAsArrayBuffer(file);
+    }else{
+      
+      canvasVisible.value = true
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        pdfPages.value = 1
+        const img = new Image();
+        nextTick(() => {
+          historys.value.push([])
+          const canvas = document.getElementById('canvas1');
+          console.log("@@@@@@@@@",canvas)
+          cur_canvas.value = canvas;
+          // console.log(cur_canvas.value)
+          const ctx = canvas.getContext("2d");
+          // 设置canvas宽高为图片宽高
+          widthTemp.value = img.width
+          cur_canvas.value.width = img.width;
+          cur_canvas.value.style.width = img.width * scaleCount.value + 'px'
+          heightTemp.value = img.height
+          cur_canvas.value.height = img.height;
+          cur_canvas.value.style.height = img.height * scaleCount.value + 'px'
+          ctx.value = ctx
+          img.onload = () => {
+            // 清除之前的内容
+            ctx.value.clearRect(0, 0, cur_canvas.value.width, cur_canvas.value.height);
+            // 绘制图像到画布
+            ctx.value.drawImage(img, 0, 0, cur_canvas.value.width, cur_canvas.value.height);
+          };
+        })
+        
+        img.src = e.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    }
+    
+  }
+}
+
+
+
+const nextPage = () => {
+  if(pageNum.value < pdfPages.value)
+    pageNum.value++;
+    cur_canvas.value = document.getElementById("canvas"+pageNum.value);
+    ctx.value = cur_canvas.value.getContext("2d");
+    cur_canvas.value.style.left = canvasX.value;
+    cur_canvas.value.style.top = canvasY.value;
+
+    // this.addHistoy();
+}
+const prePage = () => {
+  if(pageNum.value > 1)
+    pageNum.value--;
+    cur_canvas.value = document.getElementById("canvas"+pageNum.value);
+    ctx.value = cur_canvas.value.getContext("2d");
+    cur_canvas.value.style.left = canvasX.value;
+    cur_canvas.value.style.top = canvasY.value;
+    // this.addHistoy();
+}
+
+const renderPage = (num) => {
+  historys.value.push([])
+  var canvasId = 'canvas' + num
+  const canvas = document.getElementById(canvasId);
+  console.log("######1",canvas)
+  cur_canvas.value = canvas;
+  console.log("######2",cur_canvas.value)
+  const ctx = canvas.getContext("2d");
+  ctx.value = ctx
+  const page = pdfDoc.value.getPage(num);
+  page.then((page) => {
+    var width1 = page.getViewport({ scale: 1.0 }).width;
+    //简单判断纸张大小
+    var myscale = 3068/width1
+    if (width1 < page.getViewport({ scale: 1.0 }).height){
+      //A4
+      myscale = 1654/width1
+    }
+    const viewport = page.getViewport({ scale: myscale });
+    cur_canvas.value.style.height = viewport.height * scaleCount.value + "px";
+    heightTemp.value = viewport.height
+    cur_canvas.value.height = viewport.height;
+    cur_canvas.value.style.width = viewport.width * scaleCount.value + "px";
+    widthTemp.value = viewport.width
+    cur_canvas.value.width = viewport.width
+    
+    const renderContext = {
+      canvasContext: ctx,
+      viewport: viewport,
+    };
+
+    page.render(renderContext).promise.then(() => {
+      canvasVisible.value = true;
+      historys.value[num-1].push({
+        data: ctx.value.getImageData(0, 0, canvas.width, canvas.height)
+      })
+      if(num < pdfPages.value){
+        renderPage(num + 1);
+      }else{
+        cur_canvas.value = document.getElementById("canvas1");
+        console.log("#######3", cur_canvas.value)
+        ctx.value = cur_canvas.value.getContext("2d");
+        console.log('初始化比例：',scaleCount.value)
+        canvasX.value = cur_canvas.value.style.left
+        canvasY.value = cur_canvas.value.style.top
+      }
+    });
+  });
+  
+}
+const saveEditedImage = (text=null) => {
+
+  if(text){
+    watermark(text)
+  }
+  var date = new Date()
+  for(let i=1 ; i <= pdfPages.value ; i++){
+    const canvas = document.getElementById("canvas"+i)
+    const ctx = canvas.getContext("2d")
+    const editedImage = canvas.toDataURL("image/jpeg");
+    const link = document.createElement("a");
+    link.href = editedImage;
+
+    link.download = date.getTime() +"("+i+").jpg";
+    link.click();
+    if(text){
+      var history = historys.value[i-1];
+      history.pop();
+      ctx.putImageData(history[history.length - 1]['data'], 0, 0);
+    }   
+  }
+}
+const MoDown = (event)=>{
+  // console.log(data_style.value)
+  if(data_style.value == 'move'){
+    draged.value = true
+    const el = cur_canvas.value
+    console.log("MODOWN####",cur_canvas.value)
+    el.style.cursor='grabbing'
+    disx.value = event.pageX - el.offsetLeft
+    disy.value = event.pageY - el.offsetTop
+  }else{
+    points.value = []
+    points.value.push({x:event.pageX,y:event.pageY});
+    beginPoint.value = points.value[0]
+    penClick.value = true;
+    controlPointX.value = 0;
+    controlPointY.value = 0
+    startAxisX.value = event.pageX;
+    startAxisY.value = event.pageY;
+    // const el = canvasbox.value
+    // console.log(el.offsetLeft,el.offsetTop)
+    // console.log(event.pageX,event.pageY)
+  }
+}
+const MoUp = () => {     
+  if(data_style.value == 'move'){
+    draged.value = false
+    cur_canvas.value.style.cursor='grab'
+    canvasX.value = cur_canvas.value.style.left
+    canvasY.value = cur_canvas.value.style.top
+  }else{
+    penClick.value = false;
+    addHistoy()
+  }
+}
+const drawLine = (startp,ctrlp,endp,cl,ct) => {
+  ctx.value.beginPath();
+  ctx.value.moveTo((startp.x-cl)/scaleCount.value,(startp.y-ct)/scaleCount.value)
+  ctx.value.quadraticCurveTo((ctrlp.x-cl)/scaleCount.value,(ctrlp.y-ct)/scaleCount.value,(endp.x-cl)/scaleCount.value,(endp.y-ct)/scaleCount.value)
+  ctx.value.strokeStyle = penColor.value;//设置颜色
+  ctx.value.lineWidth = penWidth.value;//设置大小
+  ctx.value.lineCap = "round";//设置两端的形状
+  ctx.value.stroke();// stroke() 方法来绘制线条
+  ctx.value.closePath();
+
+}
+const MoMove = (event)=>{
+  if(data_style.value == 'move'){
+      if(draged.value == true){
+      const el = cur_canvas.value
+      const pg = cutparampage
+      // console.log(el.offsetLeft, el.offsetTop)
+      // console.log(disx,disy)
+      pg.style.left = el.style.left = event.pageX - disx.value + 'px';
+      pg.style.top = el.style.top = event.pageY - disy.value + 'px';
+    }
+  }else{
+    if(!penClick.value) return;
+    const canvas = cur_canvas.value;
+    const el = canvasbox.value
+    const ctx = ctx.value;
+    const stopAxisX = event.pageX;
+    const stopAxisY = event.pageY;
+    var scrolltop = el.scrollTop;
+    var scrollleft = el.scrollLeft;
+    const cl = el.offsetLeft + canvas.offsetLeft - scrollleft;
+    const ct = el.offsetTop + canvas.offsetTop - scrolltop;
+    
+    if(data_style.value == 'pencil'){    
+      var endp = {x:stopAxisX, y:stopAxisY}
+      points.value.push(endp)
+
+      if(points.value.length > 2){
+        const lastTwoPoints = points.value.slice(-2);
+        const controlPoint = lastTwoPoints[0];
+        const endPoint = {
+            x: (lastTwoPoints[0].x + lastTwoPoints[1].x) / 2,
+            y: (lastTwoPoints[0].y + lastTwoPoints[1].y) / 2,
         }
-
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.addHistoy(i,canvas)
-        // console.log(i)
+        drawLine(beginPoint.value, controlPoint, endPoint, cl, ct);
+        beginPoint.value = endPoint;
       }
-    },
-    
-    resizeImgStart(e, index){
-      e.stopPropagation()
-      const imgElem = this.$refs[`image-${index}`][0]
-      this.draggedImageDom = imgElem.querySelector('img')
-      this.disx = e.pageX;
-      this.disy = this.draggedImageDom.width
-      window.addEventListener('pointermove', this.imgResize);
-      window.addEventListener('pointerup', this.stopResize);
-    },
+    }else if(data_style.value == 'rect'){
+      //创建路径
 
-    imgResize(e){
-      if(this.draggedImageDom){
-        this.draggedImageDom.width = this.disy + e.pageX - this.disx
+      // ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.beginPath();
+      //设置矩形填充颜色
+      ctx.fillStyle="#000";
+      //绘制矩形
+      showLastHistory()
+      ctx.fillRect((startAxisX.value-cl)/scaleCount.value,(startAxisY.value - ct)/scaleCount.value,(stopAxisX-cl-startAxisX.value+cl)/scaleCount.value,(stopAxisY - ct-startAxisY.value + ct)/scaleCount.value);
+      //关闭路径
+      ctx.closePath();
+    }else if(data_style.value == 'highlight'){
+      
+      ctx.beginPath();
+      showLastHistory()
+      ctx.moveTo((startAxisX.value - cl)/scaleCount.value, (startAxisY.value - ct)/scaleCount.value);//moveTo(x,y) 定义线条开始坐标
+
+      ctx.lineTo((stopAxisX-cl)/scaleCount.value,(startAxisY.value - ct)/scaleCount.value );//lineTo(x,y) 定义线条结束坐标
+
+      ctx.strokeStyle = hlpenColor.value;//设置颜色
+      ctx.lineWidth = hlpenWidth.value;//设置大小
+      ctx.lineCap = "butt";//设置两端的形状 context.lineCap="butt|round|square";
+      ctx.stroke();// stroke() 方法来绘制线条
+      ctx.closePath();
+    }
+  }
+  
+
+}
+
+const retrue = () => {
+  var history = historys.value[pageNum.value-1];
+  
+  if(history && history.length > 1){
+    
+    history.pop();
+    showLastHistory();
+  }
+  undo.value = false
+}
+const addHistoy = (pageNum=pageNum.value, canvas=cur_canvas.value) => {
+  var ctx = canvas.getContext("2d")
+  historys.value[pageNum-1].push({
+    data: ctx.getImageData(0, 0, canvas.width, canvas.height)
+  })
+}
+const showLastHistory = () => {
+  var history = historys.value[pageNum.value-1];
+  ctx.value.putImageData(history[history.length - 1]['data'], 0, 0)
+}
+// pdf放大
+const scaleD = ()=> {
+  if (scaleCount.value == 2.0) {
+    return
+  }
+  scaleCount.value =  parseFloat(scaleCount.value) + 0.1
+  scaleCount.value = parseFloat(scaleCount.value).toFixed(1)
+  // console.log(cur_canvas.value.style.width)
+  // console.log('放大：'+ scaleCount.value)
+  pdfcanvas.value.forEach(item => {
+    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
+    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
+    item.style.width = widthTemp + 'px'
+    item.style.height = heightTemp + 'px'
+  })
+}
+// pdf缩小
+const scaleX = () => {
+  if (scaleCount.value == 0.1) {
+    return
+  }
+  scaleCount.value =  parseFloat(scaleCount.value) - 0.1
+  scaleCount.value = parseFloat(scaleCount.value).toFixed(1)
+  pdfcanvas.value.forEach(item => {
+    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
+    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
+    // console.log('缩小后的宽高：',widthTemp,heightTemp)
+    item.style.width = widthTemp + 'px'
+    item.style.height = heightTemp + 'px'
+  })
+  // console.log('缩小'+scaleCount.value)
+}
+
+//在画布中添加图片
+// const addimge = (image)=> {
+//   let ctx = ctx.value;
+//   ctx.drawImage(image,0,0);
+// }
+
+const showCutParam = ()=>{
+  
+  if(cutParamJson.value == null){
+    modal_show.value.linkxuecemodal_show = true
+    // console.log(this.linkxuecemodal_show)
+    return
+  }
+  if (cutparamshow.value) {
+    cutparamshow.value = false;
+  }else {
+    findfirstanchor()
+    var json = cutParamJson.value
+    // console.log(json.pageSize.width,json.pageSize.height)
+    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
+    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
+    let item = cutparampage
+    item.style.width = widthTemp + 'px'
+    item.style.height = heightTemp + 'px'
+
+    var panel = cutparampanel.value
+
+    // cutDivScale.value = widthTemp/json.pageSize.width
+
+    widthTemp = cutDivScale.value*json.panelSize.width
+    heightTemp = cutDivScale.value*json.panelSize.height
+
+
+    panel.style.width = widthTemp + 'px'
+    panel.style.height = heightTemp + 'px'
+    panel.style.marginTop = (anchorxy.value.y-3)*scaleCount.value + 'px'
+    panel.style.marginLeft = (anchorxy.value.x-3)*scaleCount.value + 'px'
+    cutparamshow.value = true
+  }
+}
+
+
+const findfirstanchor = () => {
+  
+  if(cutParamJson.value.pageSize.width){
+    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
+    cutDivScale.value = widthTemp/cutParamJson.value.pageSize.width
+  }     
+  var ctx = ctx.value
+  var canvas = cur_canvas.value
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  // Find first black rectangle
+  let blackRectangleFound = false;
+  let minX = canvas.width;
+  let minY = canvas.height;
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const index = (y * canvas.width + x) * 4;
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      if (r === 0 && g === 0 && b === 0) { // Black color
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        blackRectangleFound = true;
+        break;
       }
-    },
+    }
+    if (blackRectangleFound) break;
+  }
 
-    stopResize(e){
-      e.stopPropagation()
-      this.disx = 0;
-      this.disy = 0;
-      this.draggedImageDom = null;
+  if (blackRectangleFound) {
+    anchorxy.value = {x:minX,y:minY}
+    // console.log(minX,minY)
+  } else {
+    anchorxy.value = {x:0,y:0}
+    console.log('No black rectangle found.');
+  }
+}
 
-      window.removeEventListener('pointermove', this.imgResize);
-      window.removeEventListener('pointerup', this.stopResize);
-    },
+const linktoXuece = () => {
+  // console.log(env.value,papertype.value,paperid.value)
+  getanswercard(env.value,papertype.value,paperid.value).then(data => {
+    cutParamJson.value = JSON.parse(data[0])
+    pdfUrl.value = data[1]
+  }).catch(error => {
+    toast(error,'error');
+  })
+}
 
-
-    darwimg(index){
-      const imgElem = this.$refs[`image-${index}`][0]
-      const img = imgElem.querySelector('img')
-      // console.log(img.width)
-      var x = imgElem.offsetLeft
-      var y = imgElem.offsetTop
-      this.drop(img,x,y)
-      this.delimg(index)
-    },
-
-    delimg(index){
-      this.images[index] = null;
-      // console.log(this.images)
-    },
-
-    dragimgdown(e){
-      const el = e.currentTarget
-      this.draggedImageDom = el
-      el.left = 0
-      el.top = 0
-      window.addEventListener('pointermove',this.dragimgmove)
-      this.disx = e.pageX - el.offsetLeft
-      this.disy = e.pageY - el.offsetTop
-
-      // console.log(el.style.left)
-    },
-
-    dragimgmove(e) {
-      // var scrolltop = document.documentElement.scrollTop||document.body.scrollTop;
-      if(this.draggedImageDom){
-        const el = this.draggedImageDom
-        // console.log(el)
-        // console.log(el.offsetLeft, el.offsetTop)
-        // console.log(disx,disy)
-        // const ctx = this.ctx;
-        // console.log(stopAxisX,stopAxisY)
-        el.style.left = e.pageX - this.disx + 'px';
-        el.style.top = e.pageY - this.disy + 'px';
-      }      
-    },
-
-    dragimgup(){
-      // const el = this.draggedImageDom
-      window.removeEventListener('pointermove',this.dragimgmove)
-      this.draggedImageDom = null
-    },
+const downloadPDF = () => {
+  // console.log("******下载pdf:"+pdfUrl.value)
+  fetch(pdfUrl.value)
+    .then(response => response.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', pdfUrl.value.split("/").pop());
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch(error => {
+      console.error('文件下载失败', error)
+    });
+}
 
 
-    
+const fillAnswerCard = () => {
+  console.log(anchorxy.value)
+  if(!(anchorxy.value.x || anchorxy.value.x)){
+    findfirstanchor()
+  }
+  console.log(anchorxy.value)
+  let anchorxy = anchorxy.value
+  let scale = cutDivScale.value/scaleCount.value
+  let pageNum = 0
+  let canvas = null
+  let ctx = null
+  var pdfPages = pdfPages.value
+  // var that = this
+  var stuIdX = null
+  var stuIdY = null
 
-    drop(img,stopAxisX,stopAxisY) {
-
+  if(cutParamJson.value.studentIdRect){
+    stuIdX = anchorxy.value.x + cutParamJson.value.studentIdRect.x*scale
+    stuIdY = anchorxy.value.y + cutParamJson.value.studentIdRect.y*scale
+  }else{
+    stuIdX = anchorxy.value.x + cutParamJson.value.section[0].rect.x*scale
+    stuIdY = anchorxy.value.y + cutParamJson.value.section[0].rect.y*scale
+  } 
       
-      const canvas = this.canvas;
-      // const el = this.$refs.canvasbox
-      const ctx = this.ctx;
-      // console.log(stopAxisX,stopAxisY)
-      // var scrolltop = el.scrollTop;
-      // var scrollleft = el.scrollLeft;
-      // console.log(scrolltop,scrollleft)
-      
-      const cl = canvas.offsetLeft
-      const ct = canvas.offsetTop
-
-      const x = stopAxisX - cl + 22;
-      const y = stopAxisY - ct + 22;
-
-      // console.log(x,y,img.width)
-
-      ctx.drawImage(img, x/this.scaleCount, y/this.scaleCount, img.width/this.scaleCount, img.height/this.scaleCount);
-
-    },
-
-    clickuploadpdf() {
-      this.$refs.uploadpdf.click()
-      
-    },
-    handleFileChange() {
-      this.loadPDF()
-    },
-
-    async loadPDF() {
-      // NOTE: 这一步要特别注意，网上很多关于pdfjs的使用教程里漏了这一步，会出现workerSrc未定义的错误
-      pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry')
-      // pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/build/pdf.worker.mjs'
-      
-
-      const uploadpdf = this.$refs.uploadpdf
-      const file = uploadpdf.files[0];
-      if (file) {
-        this.filename = file.name
-        this.historys = []
-        if(this.filename.split('.').slice(-1)[0].toLowerCase()=='pdf'){
-          const reader = new FileReader();
-          this.canvasVisible = true
-          reader.onload = async (e) => {
-            const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
-            loadingTask.promise.then((pdf) => {
-              this.pdfDoc = pdf
-              this.pdfPages = this.pdfDoc.numPages
-              this.$nextTick(() => {
-                // this.initPages()
-                this.renderPage(this.pageNum)
+  if(cutParamJson.value){
+    const optionOffset = optionOffset.value
+    cutParamJson.value.section.forEach(function(Eachsection) {
+      if(pageNum != Eachsection.pageNumber && Eachsection.pageNumber <= pdfPages){
+        if(canvas && ctx){
+          ctx.closePath();
+          addHistoy(pageNum,canvas)
+        }
+        pageNum = Eachsection.pageNumber
+        canvas = document.getElementById("canvas"+pageNum)
+        ctx = canvas.getContext("2d")
+        // console.log("111"+barcode_url.value,stuIdX,stuIdY)
+        if((barcode_url.value && pageNum%2==1) && (((fillNum.value && fillError.value == 0))||(fillError.value  !=1 && fillError.value  != 0))){
+          darwCodebar(ctx,stuIdX,stuIdY)
+        }
+        //设置矩形填充颜色
+        ctx.fillStyle="#000";
+        ctx.strokeStyle = "red"
+        ctx.lineWidth = 2
+      }
+      if(Eachsection.sectionType.includes("Choice") && (((fillObj.value && fillError.value ==0))||(fillError.value !=3&&fillError.value !=0))){
+        let sectionx = Eachsection.rect.x
+        var sectiony = Eachsection.rect.y
+        // const that = this          
+        Eachsection.subsections.forEach(function(subsection){    
+          
+          var endx = subsection.cellWidth*scale
+          var endy = subsection.cellHeight*scale
+          var startx = anchorxy.x + (sectionx+subsection.x)*scale
+          var starty = anchorxy.y + (sectiony+subsection.y)*scale
+          //客观题横向
+          if(subsection.sequenceOption == "HorizontalFirst"){
+            var widthgap = subsection.positions*(subsection.cellWidth + subsection.cellGapWidth)-subsection.cellGapWidth+subsection.columnGapWidth
+            for(let i = 0; i < subsection.totalSequences; i++){
+              
+              var nstartx = startx + i%subsection.columns*widthgap*scale 
+              let nstarty = starty + Math.floor(i/subsection.columns)*(subsection.cellHeight+subsection.rowGapHeight)*scale
+              optionOffset.forEach(offset=>{
+                ctx.beginPath()
+                ctx.fillRect(nstartx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
+              })
+              
+            }
+            //客观题竖向
+          }else if(subsection.sequenceOption == "VerticalGroupVerticalFirst"){
+            for(let i = 0; i < subsection.totalSequences; i++){
+              let nstarty = starty + i*(subsection.cellHeight+subsection.rowGapHeight)*scale
+              optionOffset.forEach(offset=>{
+                ctx.beginPath()
+                ctx.fillRect(startx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
+              })
+            }
+          }else if(subsection.sequenceOption == "FreeStyle"){
+            subsection.freeStyleCellGroups.forEach(freeStyleCellGroup=>{
+              optionOffset.forEach(offset=>{
+                var nstartx = startx + freeStyleCellGroup[offset].x*scale
+                let nstarty = starty + freeStyleCellGroup[offset].y*scale
+                // console.log("do",nstartx,nstarty)
+                ctx.beginPath()
+                ctx.fillRect(nstartx,nstarty,endx,endy)
               })
             })
-          };
-          reader.readAsArrayBuffer(file);
+            
+          }
+        })
+      }else if(Eachsection.sectionType.includes("ScoreBox") && (((fillSubj.value&&fillError.value ==0))||(fillError.value !=4&&fillError.value !=0))){
+        //填涂主观题
+        var score = [1,3,0]
+        let sectionx = Eachsection.rect.x
+        
+        var cellwidth = Eachsection.rect.width/19
+        // console.log("sectionNum:"+Eachsection.sectionNumber+"'s cellwidth is "+cellwidth)
+        var subsection = Eachsection.subsections[0]
+        var startY = anchorxy.y + (Eachsection.rect.y - subsection.cellHeight)*scale
+        var endY = startY + 3*subsection.cellHeight*scale
+        var tensX = null
+        var oneX = null
+
+        // 默认满分
+        var fullscore = Math.floor(Math.abs(subsection.maxIntegerScore));
+        score = [Math.floor(fullscore / 10),fullscore%10,0]
+        console.log(score)
+        if(subsection.maxIntegerScore <= subsection.maxSingleBoxScore){
+          oneX = anchorxy.x + ((17.5-10*score[0]-score[1])*cellwidth+sectionx)*scale
         }else{
-          
-          this.canvasVisible = true
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            this.pdfPages = 1
-            const img = new Image();
-            this.$nextTick(() => {
-              this.historys.push([])
-              const canvas = document.getElementById('canvas1');
-              console.log(canvas)
-              this.canvas = canvas;
-              const ctx = canvas.getContext("2d");
-              // 设置canvas宽高为图片宽高
-              this.widthTemp = img.width
-              this.canvas.width = img.width;
-              this.canvas.style.width = img.width * this.scaleCount + 'px'
-              this.heightTemp = img.height
-              this.canvas.height = img.height;
-              this.canvas.style.height = img.height * this.scaleCount + 'px'
-              this.ctx = ctx
-              img.onload = () => {
-                // 清除之前的内容
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                // 绘制图像到画布
-                this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
-              };
-            })
-            
-            img.src = e.target.result;
-          };
-
-          reader.readAsDataURL(file);
+          tensX = score[0] == 0 ? null : anchorxy.x + ((7.5-score[0])*cellwidth+sectionx)*scale
+          oneX = anchorxy.x + ((17.5-score[1])*cellwidth+sectionx)*scale
         }
-        
-      }
-    },
-
-   
-
-    nextPage() {
-      if(this.pageNum < this.pdfPages)
-        this.pageNum++;
-        this.canvas = document.getElementById("canvas"+this.pageNum);
-        this.ctx = this.canvas.getContext("2d");
-        this.canvas.style.left = this.canvasX;
-        this.canvas.style.top = this.canvasY;
-
-        // this.addHistoy();
-    },
-    prePage() {
-      if(this.pageNum > 1)
-        this.pageNum--;
-        this.canvas = document.getElementById("canvas"+this.pageNum);
-        this.ctx = this.canvas.getContext("2d");
-        this.canvas.style.left = this.canvasX;
-        this.canvas.style.top = this.canvasY;
-        // this.addHistoy();
-    },
-
-    renderPage(num) {
-      this.historys.push([])
-      var canvasId = 'canvas' + num
-      const canvas = document.getElementById(canvasId);
-      this.canvas = canvas;
-      const ctx = canvas.getContext("2d");
-      this.ctx = ctx
-      const page = this.pdfDoc.getPage(num);
-      page.then((page) => {
-        var width1 = page.getViewport({ scale: 1.0 }).width;
-        //简单判断纸张大小
-        var myscale = 3068/width1
-        if (width1 < page.getViewport({ scale: 1.0 }).height){
-          //A4
-          myscale = 1654/width1
+        var halfX = score[2] == 0 ? null : anchorxy.x + (Eachsection.rect.width-cellwidth/2+sectionx)*scale
+        if(tensX){
+          ctx.beginPath()
+          ctx.moveTo(tensX,startY)
+          ctx.lineTo(tensX,endY)
+          ctx.stroke()
         }
-        const viewport = page.getViewport({ scale: myscale });
-        this.canvas.style.height = viewport.height * this.scaleCount + "px";
-        this.heightTemp = viewport.height
-        this.canvas.height = viewport.height;
-        this.canvas.style.width = viewport.width * this.scaleCount + "px";
-        this.widthTemp = viewport.width
-        this.canvas.width = viewport.width
-        
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport,
-        };
-
-        page.render(renderContext).promise.then(() => {
-          this.canvasVisible = true;
-          this.historys[num-1].push({
-            data: this.ctx.getImageData(0, 0, canvas.width, canvas.height)
-          })
-          if(num < this.pdfPages){
-            this.renderPage(num + 1);
-          }else{
-            this.canvas = document.getElementById("canvas1");
-            this.ctx = this.canvas.getContext("2d");
-            console.log('初始化比例：',this.scaleCount)
-            this.canvasX = this.canvas.style.left
-            this.canvasY = this.canvas.style.top
-          }
-        });
-      });
-      
-    },
-    saveEditedImage(text=null) {
-
-      if(text){
-        this.watermark(text)
-      }
-      var date = new Date()
-      for(let i=1 ; i <= this.pdfPages ; i++){
-        const canvas = document.getElementById("canvas"+i)
-        const ctx = canvas.getContext("2d")
-        const editedImage = canvas.toDataURL("image/jpeg");
-        const link = document.createElement("a");
-        link.href = editedImage;
-  
-        link.download = date.getTime() +"("+i+").jpg";
-        link.click();
-        if(text){
-          var history = this.historys[i-1];
-          history.pop();
-          ctx.putImageData(history[history.length - 1]['data'], 0, 0);
-        }   
-      }
-    },
-    MoDown(event){
-      // console.log(this.data_style)
-      if(this.data_style == 'move'){
-        this.draged = true
-        const el = this.canvas
-        el.style.cursor='grabbing'
-        this.disx = event.pageX - el.offsetLeft
-        this.disy = event.pageY - el.offsetTop
-      }else{
-        this.points = []
-        this.points.push({x:event.pageX,y:event.pageY});
-        this.beginPoint = this.points[0]
-        this.penClick = true;
-        this.controlPointX = 0;
-        this.controlPointY = 0
-        this.startAxisX = event.pageX;
-        this.startAxisY = event.pageY;
-        // const el = this.$refs.canvasbox
-        // console.log(el.offsetLeft,el.offsetTop)
-        // console.log(event.pageX,event.pageY)
-      }
-    },
-    MoUp(){     
-      if(this.data_style == 'move'){
-        this.draged = false
-        this.canvas.style.cursor='grab'
-        this.canvasX = this.canvas.style.left
-        this.canvasY = this.canvas.style.top
-      }else{
-        this.penClick = false;
-        this.addHistoy()
-      }
-    },
-    drawLine(startp,ctrlp,endp,cl,ct) {
-      this.ctx.beginPath();
-      this.ctx.moveTo((startp.x-cl)/this.scaleCount,(startp.y-ct)/this.scaleCount)
-      this.ctx.quadraticCurveTo((ctrlp.x-cl)/this.scaleCount,(ctrlp.y-ct)/this.scaleCount,(endp.x-cl)/this.scaleCount,(endp.y-ct)/this.scaleCount)
-      this.ctx.strokeStyle = this.penColor;//设置颜色
-      this.ctx.lineWidth = this.penWidth;//设置大小
-      this.ctx.lineCap = "round";//设置两端的形状
-      this.ctx.stroke();// stroke() 方法来绘制线条
-      this.ctx.closePath();
-
-    },
-    MoMove(event){
-      if(this.data_style == 'move'){
-          if(this.draged == true){
-          const el = this.canvas
-          const pg = this.$refs.cutparampage
-          // console.log(el.offsetLeft, el.offsetTop)
-          // console.log(disx,disy)
-          pg.style.left = el.style.left = event.pageX - this.disx + 'px';
-          pg.style.top = el.style.top = event.pageY - this.disy + 'px';
+        if(halfX){
+          ctx.beginPath()
+          ctx.moveTo(halfX,startY)
+          ctx.lineTo(halfX,endY)
+          ctx.stroke()
         }
-      }else{
-        if(!this.penClick) return;
-        const canvas = this.canvas;
-        const el = this.$refs.canvasbox
-        const ctx = this.ctx;
-        const stopAxisX = event.pageX;
-        const stopAxisY = event.pageY;
-        var scrolltop = el.scrollTop;
-        var scrollleft = el.scrollLeft;
-        const cl = el.offsetLeft + canvas.offsetLeft - scrollleft;
-        const ct = el.offsetTop + canvas.offsetTop - scrolltop;
-        
-        if(this.data_style == 'pencil'){    
-          var endp = {x:stopAxisX, y:stopAxisY}
-          this.points.push(endp)
-
-          if(this.points.length > 2){
-            const lastTwoPoints = this.points.slice(-2);
-            const controlPoint = lastTwoPoints[0];
-            const endPoint = {
-                x: (lastTwoPoints[0].x + lastTwoPoints[1].x) / 2,
-                y: (lastTwoPoints[0].y + lastTwoPoints[1].y) / 2,
-            }
-            this.drawLine(this.beginPoint, controlPoint, endPoint, cl, ct);
-            this.beginPoint = endPoint;
-          }
-        }else if(this.data_style == 'rect'){
-          //创建路径
-
-          // ctx.clearRect(0,0,canvas.width,canvas.height);
-          ctx.beginPath();
-          //设置矩形填充颜色
-          ctx.fillStyle="#000";
-          //绘制矩形
-          this.showLastHistory()
-          ctx.fillRect((this.startAxisX-cl)/this.scaleCount,(this.startAxisY - ct)/this.scaleCount,(stopAxisX-cl-this.startAxisX+cl)/this.scaleCount,(stopAxisY - ct-this.startAxisY + ct)/this.scaleCount);
-          //关闭路径
-          ctx.closePath();
-        }else if(this.data_style == 'highlight'){
-          
-          ctx.beginPath();
-          this.showLastHistory()
-          ctx.moveTo((this.startAxisX - cl)/this.scaleCount, (this.startAxisY - ct)/this.scaleCount);//moveTo(x,y) 定义线条开始坐标
-
-          ctx.lineTo((stopAxisX-cl)/this.scaleCount,(this.startAxisY - ct)/this.scaleCount );//lineTo(x,y) 定义线条结束坐标
-
-          ctx.strokeStyle = this.hlpenColor;//设置颜色
-          ctx.lineWidth = this.hlpenWidth;//设置大小
-          ctx.lineCap = "butt";//设置两端的形状 context.lineCap="butt|round|square";
-          ctx.stroke();// stroke() 方法来绘制线条
-          ctx.closePath();
+        if(oneX){
+          ctx.beginPath()
+          ctx.moveTo(oneX,startY)
+          ctx.lineTo(oneX,endY)
+          ctx.stroke()
         }
       }
-      
+    })
+    addHistoy(pageNum,canvas)
+  }else{
+    console.log("未绑定试卷识别Json")
+  }
+}
 
-    },
-    
-    retrue(){
-      var history = this.historys[this.pageNum-1];
-      
-      if(history && history.length > 1){
-        
-        history.pop();
-        this.showLastHistory();
-      }
-      this.undo = false
-    },
-    addHistoy(pageNum=this.pageNum, canvas=this.canvas) {
-      var ctx = canvas.getContext("2d")
-      this.historys[pageNum-1].push({
-        data: ctx.getImageData(0, 0, canvas.width, canvas.height)
-      })
-    },
-    showLastHistory() {
-      var history = this.historys[this.pageNum-1];
-      this.ctx.putImageData(history[history.length - 1]['data'], 0, 0)
-    },
-    // pdf放大
-    scaleD() {
-      if (this.scaleCount == 2.0) {
-        return
-      }
-      this.scaleCount =  parseFloat(this.scaleCount) + 0.1
-      this.scaleCount = parseFloat(this.scaleCount).toFixed(1)
-      // console.log(this.canvas.style.width)
-      // console.log('放大：'+ this.scaleCount)
-      this.$refs.pdfcanvas.forEach(item => {
-        var widthTemp = this.widthTemp * parseFloat(this.scaleCount)
-        var heightTemp = this.heightTemp * parseFloat(this.scaleCount)
-        item.style.width = widthTemp + 'px'
-        item.style.height = heightTemp + 'px'
-      })
-    },
-    // pdf缩小
-    scaleX() {
-      if (this.scaleCount == 0.1) {
-        return
-      }
-      this.scaleCount =  parseFloat(this.scaleCount) - 0.1
-      this.scaleCount = parseFloat(this.scaleCount).toFixed(1)
-      this.$refs.pdfcanvas.forEach(item => {
-        var widthTemp = this.widthTemp * parseFloat(this.scaleCount)
-        var heightTemp = this.heightTemp * parseFloat(this.scaleCount)
-        // console.log('缩小后的宽高：',widthTemp,heightTemp)
-        item.style.width = widthTemp + 'px'
-        item.style.height = heightTemp + 'px'
-      })
-      // console.log('缩小'+this.scaleCount)
-    },
+const darwCodebar = (ctx,x,y) => {
+  let img = new Image()
 
-    //在画布中添加图片
-    addimge(image) {
-      let ctx = this.ctx;
-      ctx.drawImage(image,0,0);
-    },
+  img.onload = function(){
+    ctx.drawImage(img,x,y)
+  }
+  img.src = barcode_url.value
+}
 
-    showCutParam() {
-      
-      if(this.cutParamJson == null){
-        this.modal_show.linkxuecemodal_show = true
-        // console.log(this.linkxuecemodal_show)
-        return
-      }
-      if (this.cutparamshow) {
-        this.cutparamshow = false;
-      }else {
-        this.findfirstanchor()
-        var json = this.cutParamJson
-        // console.log(json.pageSize.width,json.pageSize.height)
-        var widthTemp = this.widthTemp * parseFloat(this.scaleCount)
-        var heightTemp = this.heightTemp * parseFloat(this.scaleCount)
-        let item = this.$refs.cutparampage
-        item.style.width = widthTemp + 'px'
-        item.style.height = heightTemp + 'px'
+const clearImges = () => {
+  images.value = []
+}
 
-        var panel = this.$refs.cutparampanel
+const push2images = (src) => {
+  images.value.push(src)
+}
 
-        // this.cutDivScale = widthTemp/json.pageSize.width
+const changeBarcodeUrl = (url) => {
+  barcode_url.value = url
+}
 
-        widthTemp = this.cutDivScale*json.panelSize.width
-        heightTemp = this.cutDivScale*json.panelSize.height
+const changeType = (type) => {
+  data_style.value = type
+}
+
+const changePenColor = (color) => {
+  penColor.value = color
+}
+
+const updatePenWidth = (width) => {
+  penWidth.value = width
+}
+
+// 提供方法给子组件
+provide('pageMethods', {
+  nextPage,
+  prePage,
+  scaleD,
+  scaleX,
+  // addimge,
+  clearImges,
+  saveEditedImage,
+  push2images,
+  changeBarcodeUrl,
+  changeType,
+  changePenColor,
+  updatePenWidth
+})
 
 
-        panel.style.width = widthTemp + 'px'
-        panel.style.height = heightTemp + 'px'
-        panel.style.marginTop = (this.anchorxy.y-3)*this.scaleCount + 'px'
-        panel.style.marginLeft = (this.anchorxy.x-3)*this.scaleCount + 'px'
-        this.cutparamshow = true
-      }
-    },
-
-
-    findfirstanchor(){
-      
-      if(this.cutParamJson.pageSize.width){
-        var widthTemp = this.widthTemp * parseFloat(this.scaleCount)
-        this.cutDivScale = widthTemp/this.cutParamJson.pageSize.width
-      }     
-      var ctx = this.ctx
-      var canvas = this.canvas
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Find first black rectangle
-      let blackRectangleFound = false;
-      let minX = canvas.width;
-      let minY = canvas.height;
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-          const index = (y * canvas.width + x) * 4;
-          const r = data[index];
-          const g = data[index + 1];
-          const b = data[index + 2];
-          if (r === 0 && g === 0 && b === 0) { // Black color
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            blackRectangleFound = true;
-            break;
-          }
-        }
-        if (blackRectangleFound) break;
-      }
-
-      if (blackRectangleFound) {
-        this.anchorxy = {x:minX,y:minY}
-        // console.log(minX,minY)
-      } else {
-        this.anchorxy = {x:0,y:0}
-        console.log('No black rectangle found.');
-      }
-    },
-
-    linktoXuece(){
-      // console.log(this.env,this.papertype,this.paperid)
-      var that = this
-      getanswercard(this.env,this.papertype,this.paperid).then(data => {
-        that.cutParamJson = JSON.parse(data[0])
-        that.pdfUrl = data[1]
-      }).catch(error => {
-        that.$toast.show(error,'error');
-      })
-    },
-
-    downloadPDF(){
-      // console.log("******下载pdf:"+this.pdfUrl)
-      fetch(this.pdfUrl)
-        .then(response => response.blob())
-        .then(blob => {
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', this.pdfUrl.split("/").pop());
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        })
-        .catch(error => {
-          console.error('文件下载失败', error)
-        });
-    },
-
-
-    fillAnswerCard(){
-      console.log(this.anchorxy)
-      if(!(this.anchorxy.x || this.anchorxy.x)){
-        this.findfirstanchor()
-      }
-      console.log(this.anchorxy)
-      let anchorxy = this.anchorxy
-      let scale = this.cutDivScale/this.scaleCount
-      let pageNum = 0
-      let canvas = null
-      let ctx = null
-      var pdfPages = this.pdfPages
-      var that = this
-      var stuIdX = null
-      var stuIdY = null
-
-      if(this.cutParamJson.studentIdRect){
-        stuIdX = this.anchorxy.x + this.cutParamJson.studentIdRect.x*scale
-        stuIdY = this.anchorxy.y + this.cutParamJson.studentIdRect.y*scale
-      }else{
-        stuIdX = this.anchorxy.x + this.cutParamJson.section[0].rect.x*scale
-        stuIdY = this.anchorxy.y + this.cutParamJson.section[0].rect.y*scale
-      } 
-          
-      if(this.cutParamJson){
-        const optionOffset = this.optionOffset
-        this.cutParamJson.section.forEach(function(Eachsection) {
-          if(pageNum != Eachsection.pageNumber && Eachsection.pageNumber <= pdfPages){
-            if(canvas && ctx){
-              ctx.closePath();
-              that.addHistoy(pageNum,canvas)
-            }
-            pageNum = Eachsection.pageNumber
-            canvas = document.getElementById("canvas"+pageNum)
-            ctx = canvas.getContext("2d")
-            // console.log("111"+that.barcode_url,stuIdX,stuIdY)
-            if((that.barcode_url && pageNum%2==1) && (((that.fillNum&&that.fillError==0))||(that.fillError!=1&&that.fillError!=0))){
-              that.darwCodebar(ctx,stuIdX,stuIdY)
-            }
-            //设置矩形填充颜色
-            ctx.fillStyle="#000";
-            ctx.strokeStyle = "red"
-            ctx.lineWidth = 2
-          }
-          if(Eachsection.sectionType.includes("Choice") && (((that.fillObj&&that.fillError==0))||(that.fillError!=3&&that.fillError!=0))){
-            let sectionx = Eachsection.rect.x
-            var sectiony = Eachsection.rect.y
-            // const that = this          
-            Eachsection.subsections.forEach(function(subsection){    
-              
-              var endx = subsection.cellWidth*scale
-              var endy = subsection.cellHeight*scale
-              var startx = anchorxy.x + (sectionx+subsection.x)*scale
-              var starty = anchorxy.y + (sectiony+subsection.y)*scale
-              //客观题横向
-              if(subsection.sequenceOption == "HorizontalFirst"){
-                var widthgap = subsection.positions*(subsection.cellWidth + subsection.cellGapWidth)-subsection.cellGapWidth+subsection.columnGapWidth
-                for(let i = 0; i < subsection.totalSequences; i++){
-                  
-                  var nstartx = startx + i%subsection.columns*widthgap*scale 
-                  let nstarty = starty + Math.floor(i/subsection.columns)*(subsection.cellHeight+subsection.rowGapHeight)*scale
-                  optionOffset.forEach(offset=>{
-                    ctx.beginPath()
-                    ctx.fillRect(nstartx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
-                  })
-                  
-                }
-                //客观题竖向
-              }else if(subsection.sequenceOption == "VerticalGroupVerticalFirst"){
-                for(let i = 0; i < subsection.totalSequences; i++){
-                  let nstarty = starty + i*(subsection.cellHeight+subsection.rowGapHeight)*scale
-                  optionOffset.forEach(offset=>{
-                    ctx.beginPath()
-                    ctx.fillRect(startx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
-                  })
-                }
-              }else if(subsection.sequenceOption == "FreeStyle"){
-                subsection.freeStyleCellGroups.forEach(freeStyleCellGroup=>{
-                  optionOffset.forEach(offset=>{
-                    var nstartx = startx + freeStyleCellGroup[offset].x*scale
-                    let nstarty = starty + freeStyleCellGroup[offset].y*scale
-                    // console.log("do",nstartx,nstarty)
-                    ctx.beginPath()
-                    ctx.fillRect(nstartx,nstarty,endx,endy)
-                  })
-                })
-                
-              }
-            })
-          }else if(Eachsection.sectionType.includes("ScoreBox") && (((that.fillSubj&&that.fillError==0))||(that.fillError!=4&&that.fillError!=0))){
-            //填涂主观题
-            var score = [1,3,0]
-            let sectionx = Eachsection.rect.x
-            
-            var cellwidth = Eachsection.rect.width/19
-            // console.log("sectionNum:"+Eachsection.sectionNumber+"'s cellwidth is "+cellwidth)
-            var subsection = Eachsection.subsections[0]
-            var startY = anchorxy.y + (Eachsection.rect.y - subsection.cellHeight)*scale
-            var endY = startY + 3*subsection.cellHeight*scale
-            var tensX = null
-            var oneX = null
-
-            // 默认满分
-            var fullscore = Math.floor(Math.abs(subsection.maxIntegerScore));
-            score = [Math.floor(fullscore / 10),fullscore%10,0]
-            console.log(score)
-            if(subsection.maxIntegerScore <= subsection.maxSingleBoxScore){
-              oneX = anchorxy.x + ((17.5-10*score[0]-score[1])*cellwidth+sectionx)*scale
-            }else{
-              tensX = score[0] == 0 ? null : anchorxy.x + ((7.5-score[0])*cellwidth+sectionx)*scale
-              oneX = anchorxy.x + ((17.5-score[1])*cellwidth+sectionx)*scale
-            }
-            var halfX = score[2] == 0 ? null : anchorxy.x + (Eachsection.rect.width-cellwidth/2+sectionx)*scale
-            if(tensX){
-              ctx.beginPath()
-              ctx.moveTo(tensX,startY)
-              ctx.lineTo(tensX,endY)
-              ctx.stroke()
-            }
-            if(halfX){
-              ctx.beginPath()
-              ctx.moveTo(halfX,startY)
-              ctx.lineTo(halfX,endY)
-              ctx.stroke()
-            }
-            if(oneX){
-              ctx.beginPath()
-              ctx.moveTo(oneX,startY)
-              ctx.lineTo(oneX,endY)
-              ctx.stroke()
-            }
-          }
-        })
-        that.addHistoy(pageNum,canvas)
-      }else{
-        console.log("未绑定试卷识别Json")
-      }
-    },
-
-    darwCodebar(ctx,x,y){
-      let img = new Image()
-      console.log(this.barcode_url,x,y)
-      img.onload = function(){
-        ctx.drawImage(img,x,y)
-      }
-      img.src = this.barcode_url
-    },
-
-  },
-
-
-  
-
-};
 </script>
 
 <style>

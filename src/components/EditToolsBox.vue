@@ -71,34 +71,34 @@
             </div>
           </div>
         </div>
-        <div class="edit-item" @click="$parent.retrue">
+        <div class="edit-item" @click="retrue">
           <icon-wrapper name="RiArrowGoBackLine" color="#eee" size="25" />
         </div>
       </div>
       <div class="edit-group zoom" v-if="$parent.canvasVisible">
-        <div class="edit-item" @click="$parent.scaleD">
+        <div class="edit-item" @click="scaleD">
           <icon-wrapper name="RiZoomInLine" color="#eee" size="25" />
         </div>
-        <div class="edit-item" @click="$parent.scaleX">
+        <div class="edit-item" @click="scaleX">
           <icon-wrapper name="RiZoomOutLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
           {{parseInt($parent.scaleCount*100)}}%
         </div>
       </div>
-      <div class="edit-group pag" v-if="$parent.canvasVisible">
-        <div class="edit-item" @click="$parent.prePage">
+      <div class="edit-group pag" v-if="canvasVisible">
+        <div class="edit-item" @click="prePage">
           <icon-wrapper name="RiArrowLeftSLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
           {{$parent.pageNum}} / {{$parent.pdfPages}}
         </div>
-        <div class="edit-item"  @click="$parent.nextPage">
+        <div class="edit-item"  @click="nextPage">
           <icon-wrapper name="RiArrowRightSLine" color="#eee" size="25" />
         </div>
       </div>
       <div class="edit-group">
-        <div class="edit-item dld" @click="$parent.saveEditedImage(watermarktext)">
+        <div class="edit-item dld" @click="saveEditedImage(watermarktext)">
           <icon-wrapper name="RiDownloadLine" color="#eee" size="25" />
         </div>
         <input type="text" id="download-add-watermark" :class="{'edit-input d-watermark':true,'wmshow':watermarktext}" placeholder="默认无水印" v-model="watermarktext"/>
@@ -125,205 +125,187 @@
   </div>
 </template>
 
-<script>
-import { defineComponent } from 'vue'
+<script setup>
+import { ref, inject, watch } from 'vue'
+
+const {
+  nextPage,
+  prePage,
+  scaleD,
+  scaleX,
+  // addimge,
+  clearImges,
+  saveEditedImage,
+  push2images,
+  changeBarcodeUrl,
+  changeType,
+  changePenColor,
+  updatePenWidth
+} = inject('pageMethods')
 
 import JsBarcode from 'jsbarcode';
 
-export default defineComponent ({
-  data(){
-    return{
-      type: "move",
-      tmptype: "",
-      draged: false,
-      dragedel: null,
-      disx: 0,
-      disy: 0,
-      textColor: "#000",
-      draggedImage: null,
-      fullscreen: false,
-      watermarktext: "",
-      barcodeData:"",
-      autocreate_show:false,
-      codebar_show:false,
-      barcode_url:null
-    }
-  },
+const type = ref("move")
+// const tmptype = ref("")
+// const draged = ref(false)
+const dragedel = ref(null)
+const disx = ref(0)
+const disy = ref(0)
+// const textColor = ref("#000")
+// const draggedImage = ref(null)
+const fullscreen = ref(false)
+const watermarktext = ref("")
+const barcodeData = ref("")
+const autocreate_show = ref(false)
+const codebar_show = ref(false)
+const barcode_url = ref(null)
 
-  watch: {
-    type: function(newval, oldval) {
-      if(oldval=='pic' && newval != 'move'){
-        console.log('还有贴图没有绘制，确认后未保存的贴图将丢失!')
-        this.$parent.images = []
-      }
-    }
-  },
-
-  mounted() {
-    // const that = this
-    // document.addEventListener('keydown', that.handleWatchEnter);
-    // document.addEventListener('keyup', that.handleWatchOut);
-  },
+const canvasBoxRef = ref(null)
+const barcodeRef = ref(null)
+const canvasRef = ref(null)
 
 
-  methods: {
 
-    // watermark(){
-    //   const text = document.getElementById('watermark-text').value
-    //   // console.log(text)
-    //   this.$parent.watermark(text)
-    // },
-    handleWatchEnter(e) {
-      if(e.repeat){
-        return
-      }
-      // var key = window.event ? e.keyCode : e.which;
-      // // console.log(key);
-      // if (key === 32  ) {
-      //   // 这里执行相应的行为动作
-      //   if(this.$parent.penClick){
-      //     this.$parent.MoUp()
-      //   }
-      //   this.tmptype = this.type
-      //   this.gettoolsbystring('move')
-      // }
-    },
 
-    handleWatchOut(e) {
-      var key = window.event ? e.keyCode : e.which;
-      if (key === 32  ) {
-        this.type = this.tmptype
-        this.gettoolsbystring(this.type)
-      }
-    },
-
-    switchtools(e) {
-      const type = e.currentTarget.id;
-      this.gettoolsbystring(type)
-      
-    },
-
-    gettoolsbystring(type) {
-      this.type = type;
-      this.$parent.data_style = type;
-      if(type == 'move'){
-        this.$parent.canvas.style.cursor='grab'
-      }else if(this.type == 'highlight'){
-        this.$parent.canvas.style.cursor='text'
-      }else{
-        this.$parent.canvas.style.cursor='auto'
-      }
-      if(this.$parent.penClick){
-        this.$parent.MoUp()
-      }
-    },
-
-    dragdown(e,id) {
-      this.dragedel = document.getElementById(id)
-      document.addEventListener('mousemove', this.dragmove)
-      this.disx = e.pageX - this.dragedel.offsetLeft
-      this.disy = e.pageY - this.dragedel.offsetTop
-    },
-    dragup() {
-      this.dragedel = null
-      document.removeEventListener('mousemove',this.dragmove)
-    },
-    dragmove(e) {
-      // var scrolltop = document.documentElement.scrollTop||document.body.scrollTop;
-      if(this.dragedel){
-        this.dragedel.style.left = e.pageX - this.disx + 'px';
-        this.dragedel.style.top = e.pageY - this.disy + 'px';
-      }      
-    },
-
-    getTextColor(e,color) {
-      let colorItems = document.querySelectorAll('.color-item');
-      let item = e.currentTarget
-      colorItems.forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-      this.textColor = color
-      let texta = document.getElementById("edit-textarea");
-      texta.style.color = this.textColor
-    },
-    getPenColor(e,color) {
-      let colorItems = document.querySelectorAll('.color-item');
-      let item = e.currentTarget
-      colorItems.forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
-      this.$parent.penColor = color
-      
-    },
-
-    changePenWidth() {
-      const range = document.getElementById('penWidth-range')
-      console.log(range.value)
-      this.$parent.penWidth = parseInt(range.value)
-    },
-
-    selectimg(e) {
-      var image = e.currentTarget
-      console.log(image.src)
-      // console.log(this.$parent.images)
-      this.$parent.images.push(image.src)
-      // console.log(this.$parent.images)
-    },
-
-    canvas2fullscreen() {
-      const canvasbox = this.$parent.$refs.canvasbox
-      console.log(this.fullscreen)
-      if(document.fullscreenElement){
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) { // 针对 Chrome, Safari 和 Opera
-            document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {  // 针对 Firefox
-            document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {     // 针对 IE
-            document.msExitFullscreen();
-        }
-      }else{
-        if (canvasbox.requestFullscreen) {
-            canvasbox.requestFullscreen();
-        } else if (canvasbox.webkitRequestFullScreen) { // 针对 Chrome, Safari 和 Opera
-            canvasbox.webkitRequestFullScreen();
-        } else if (canvasbox.mozRequestFullScreen) {    // 针对 Firefox
-            canvasbox.mozRequestFullScreen();
-        } else if (canvasbox.msRequestFullscreen) {     // 针对 IE
-            canvasbox.msRequestFullscreen();
-        }
-      }
-
-      this.fullscreen = !this.fullscreen
-    },
-
-    generateBarcode() {
-      JsBarcode(this.$refs.barcode, this.barcodeData,{
-        height:100,//条码高度为100像素
-        fontSize:18,
-        fontOptions:'bold',//blod/italic/blod italic
-        font:'Courier New'
-      });
-
-      // 获取生成的SVG元素
-      const svg = this.$refs.barcode;
-
-      // 创建Blob对象
-      const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
-
-      // 创建临时URL
-      const tempUrl = URL.createObjectURL(svgBlob);
-
-      this.barcode_url = tempUrl
-      this.$parent.barcode_url = tempUrl
-
-      // 在控制台打印临时URL，用于调试
-      console.log('临时URL:', tempUrl);
-    }
-
-    
+watch(type, (newVal, oldVal) => {
+  if (oldVal === 'pic' && newVal !== 'move') {
+    console.log('还有贴图没有绘制，确认后未保存的贴图将丢失!')
+    clearImges()
   }
-
 })
+
+// 方法定义
+// const handleWatchEnter = (e) => {
+//   if(e.repeat) return
+// }
+
+// const handleWatchOut = (e) => {
+//   const key = window.event ? e.keyCode : e.which
+//   if (key === 32) {
+//     type.value = tmptype.value
+//     gettoolsbystring(type.value)
+//   }
+// }
+
+const switchtools = (e) => {
+  const type = e.currentTarget.id
+  gettoolsbystring(type)
+}
+
+const gettoolsbystring = (type) => {
+  type.value = type
+  changeType(type) // 通过事件通知父组件
+  
+  if(type === 'move') {
+    canvasRef.value.style.cursor = 'grab'
+  } else if(type === 'highlight') {
+    canvasRef.value.style.cursor = 'text'
+  } else {
+    canvasRef.value.style.cursor = 'auto'
+  }
+  
+  // if(penClick.value) {
+  //   emit('mo-up') // 通知父组件执行MoUp
+  // }
+}
+
+const dragdown = (e, id) => {
+  dragedel.value = document.getElementById(id)
+  document.addEventListener('mousemove', dragmove)
+  disx.value = e.pageX - dragedel.value.offsetLeft
+  disy.value = e.pageY - dragedel.value.offsetTop
+}
+
+const dragup = () => {
+  dragedel.value = null
+  document.removeEventListener('mousemove', dragmove)
+}
+
+const dragmove = (e) => {
+  if(dragedel.value) {
+    dragedel.value.style.left = e.pageX - disx.value + 'px'
+    dragedel.value.style.top = e.pageY - disy.value + 'px'
+  }
+}
+
+// const getTextColor = (e, color) => {
+//   const colorItems = document.querySelectorAll('.color-item')
+//   const item = e.currentTarget
+//   colorItems.forEach(i => i.classList.remove('active'))
+//   item.classList.add('active')
+//   textColor.value = color
+//   textareaRef.value.style.color = textColor.value
+// }
+
+const getPenColor = (e, color) => {
+  const colorItems = document.querySelectorAll('.color-item')
+  const item = e.currentTarget
+  colorItems.forEach(i => i.classList.remove('active'))
+  item.classList.add('active')
+  changePenColor(color)
+  // emit('update-pen-color', color) // 通知父组件更新笔颜色
+}
+
+const changePenWidth = () => {
+  const range = document.getElementById('penWidth-range')
+  updatePenWidth(parseInt(range.value))
+}
+
+const selectimg = (e) => {
+  const image = e.currentTarget
+  push2images(image.src)
+}
+
+const canvas2fullscreen = () => {
+  if(document.fullscreenElement) {
+    exitFullscreen()
+  } else {
+    requestFullscreen(canvasBoxRef.value)
+  }
+  fullscreen.value = !fullscreen.value
+}
+
+// 辅助函数
+const exitFullscreen = () => {
+  if (document.exitFullscreen) {
+    document.exitFullscreen()
+  } else if (document.webkitExitFullscreen) {
+    document.webkitExitFullscreen()
+  } else if (document.mozCancelFullScreen) {
+    document.mozCancelFullScreen()
+  } else if (document.msExitFullscreen) {
+    document.msExitFullscreen()
+  }
+}
+
+const requestFullscreen = (element) => {
+  if (element.requestFullscreen) {
+    element.requestFullscreen()
+  } else if (element.webkitRequestFullScreen) {
+    element.webkitRequestFullScreen()
+  } else if (element.mozRequestFullScreen) {
+    element.mozRequestFullScreen()
+  } else if (element.msRequestFullscreen) {
+    element.msRequestFullscreen()
+  }
+}
+
+const generateBarcode = () => {
+  JsBarcode(barcodeRef.value, barcodeData.value, {
+    height: 100,
+    fontSize: 18,
+    fontOptions: 'bold',
+    font: 'Courier New'
+  })
+
+  const svg = barcodeRef.value
+  const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml' })
+  const tempUrl = URL.createObjectURL(svgBlob)
+
+  barcode_url.value = tempUrl
+  changeBarcodeUrl(tempUrl) // 通知父组件更新条形码URL
+}
+
 </script>
 
 <style scoped>
