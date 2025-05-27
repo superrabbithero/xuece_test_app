@@ -124,18 +124,18 @@
       </div>
 
       <div v-if="canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
-        <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="pageIndex == pageNum" ref="pdfcanvas">
+        <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="pageIndex == page_num" ref="pdfcanvas">
         </canvas>
 
          <!-- 识别点展示 -->
         <div ref="cutparampage" class="cutpage" v-show="cutparamshow">
           <div ref="cutparampanel" class="cutpage-panel" v-if="cutParamJson">
-            <div class="cutpage-section" v-show="pageNum%2===1"
+            <div class="cutpage-section" v-show="page_num%2===1"
             :style="{ width:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.width + 'px') : '0',
                       height:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.height + 'px') : '0',
                       top:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.y + 'px') : '0',
                       left:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.x + 'px') : '0'}"></div>
-            <div class="cutpage-section"  v-for="(section,index) in cutParamJson.section" :key="index" v-show="section.pageNumber == pageNum"
+            <div class="cutpage-section"  v-for="(section,index) in cutParamJson.section" :key="index" v-show="section.pageNumber == page_num"
             :style="{ width:cutDivScale*section.rect.width + 'px',
                       height:cutDivScale*section.rect.height + 'px',
                       top:cutDivScale*section.rect.y + 'px',
@@ -155,14 +155,14 @@
           </div>
         </div>
 
-        <div class="dragged-image" v-for="(image, index) in images" v-show="image" :key="index"  @pointerdown="dragimgdown($event)"  @pointerup="dragimgup" :ref="`image-${index}`">
+        <div class="dragged-image" v-for="(image, index) in images" v-show="image" :key="index"  @pointerdown="dragimgdown($event)"  @pointerup="dragimgup" ref="imageRefs">
           <img  draggable="false" :src="image" width="150" />
           <IconWrapper name="RiCheckboxCircleFill" size="22" color="#7ed321" style="position: absolute;right: -11px;top: -9px;" @click="darwimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
           <IconWrapper name="RiCloseCircleFill" size="22" color="#d0021b" style="position: absolute;right: -11px;top: 24px;" @click="delimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
           <IconWrapper name="RiExpandDiagonalS2Line" size="22" color="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
         </div>
 
-        <edit-tools-box v-if="canvasVisible"></edit-tools-box>
+        <edit-tools-box v-if="canvasVisible" @update-type="updateType" />
       </div>
     </div>            
   </div>
@@ -181,15 +181,25 @@ import {ref, computed, onMounted, nextTick, inject, provide, watch} from 'vue'
 
 const toast = inject('toast')
 
+//工具栏参数
+// const toolsParams = ref({
+//   penWidth:4,
+//   penColor:"#000",
+//   pageNum:1,
+//   tool_type:"move",
+//   hlpenWidth:20
+// })
+
 // 基本数据类型使用ref
 const images = ref([])
-const data_style = ref("move")
+const tool_type = ref("move")
 const canvasVisible = ref(false)
 const pdfDoc = ref(null)
-const pageNum = ref(1)
+const page_num = ref(1)
 const penColor = ref("#000")
 const hlpenColor = ref("#000")
 const penWidth = ref(4)
+
 const hlpenWidth = ref(20)
 const penClick = ref(false)
 const startAxisX = ref(0)
@@ -201,7 +211,7 @@ const beginPoint = ref({x:0, y:0})
 // const history = ref([])
 const historys = ref([])
 const cur_canvas = ref(null)
-const ctx = ref(null)
+const cur_ctx = ref(null)
 const undo = ref(false)
 const pdfPages = ref(0)
 const scaleCount = ref(0.5)
@@ -250,6 +260,18 @@ watch(
   (newVal, oldVal) => {
     console.log(oldVal,"=>", newVal)
 })
+
+const updateType = (obj) => {
+  tool_type.value = obj?.type
+
+  if(tool_type.value === 'move') {
+    cur_canvas.value.style.cursor = 'grab'
+  } else if(tool_type.value === 'highlight') {
+    cur_canvas.value.style.cursor = 'text'
+  } else {
+    cur_canvas.value.style.cursor = 'auto'
+  }
+}
 
 const hasFreeStyleGroupsSubsectionStyle = computed(() => {
   return (subsection) => {
@@ -396,7 +418,7 @@ const dragimgmove = (e) => {
     // console.log(el)
     // console.log(el.offsetLeft, el.offsetTop)
     // console.log(disx,disy)
-    // const ctx = ctx.value;
+    // const ctx = cur_ctx.value;
     // console.log(stopAxisX,stopAxisY)
     el.style.left = e.pageX - disx.value + 'px';
     el.style.top = e.pageY - disy.value + 'px';
@@ -417,7 +439,7 @@ const drop = (img,stopAxisX,stopAxisY) => {
   
   const canvas = cur_canvas.value;
   // const el = canvasbox.value
-  const ctx = ctx.value;
+  const ctx = cur_ctx.value;
   // console.log(stopAxisX,stopAxisY)
   // var scrolltop = el.scrollTop;
   // var scrollleft = el.scrollLeft;
@@ -464,7 +486,7 @@ const loadPDF = async () => {
           pdfPages.value = pdfDoc.value.numPages
           nextTick(() => {
             // this.initPages()
-            renderPage(pageNum.value)
+            renderPage(page_num.value)
           })
         })
       };
@@ -490,12 +512,12 @@ const loadPDF = async () => {
           heightTemp.value = img.height
           cur_canvas.value.height = img.height;
           cur_canvas.value.style.height = img.height * scaleCount.value + 'px'
-          ctx.value = ctx
+          cur_ctx.value = ctx
           img.onload = () => {
             // 清除之前的内容
-            ctx.value.clearRect(0, 0, cur_canvas.value.width, cur_canvas.value.height);
+            cur_ctx.value.clearRect(0, 0, cur_canvas.value.width, cur_canvas.value.height);
             // 绘制图像到画布
-            ctx.value.drawImage(img, 0, 0, cur_canvas.value.width, cur_canvas.value.height);
+            cur_ctx.value.drawImage(img, 0, 0, cur_canvas.value.width, cur_canvas.value.height);
           };
         })
         
@@ -511,20 +533,20 @@ const loadPDF = async () => {
 
 
 const nextPage = () => {
-  if(pageNum.value < pdfPages.value)
-    pageNum.value++;
-    cur_canvas.value = document.getElementById("canvas"+pageNum.value);
-    ctx.value = cur_canvas.value.getContext("2d");
+  if(page_num.value < pdfPages.value)
+    page_num.value++;
+    cur_canvas.value = document.getElementById("canvas"+page_num.value);
+    cur_ctx.value = cur_canvas.value.getContext("2d");
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
 
     // this.addHistoy();
 }
 const prePage = () => {
-  if(pageNum.value > 1)
-    pageNum.value--;
-    cur_canvas.value = document.getElementById("canvas"+pageNum.value);
-    ctx.value = cur_canvas.value.getContext("2d");
+  if(page_num.value > 1)
+    page_num.value--;
+    cur_canvas.value = document.getElementById("canvas"+page_num.value);
+    cur_ctx.value = cur_canvas.value.getContext("2d");
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
     // this.addHistoy();
@@ -538,7 +560,7 @@ const renderPage = (num) => {
   cur_canvas.value = canvas;
   console.log("######2",cur_canvas.value)
   const ctx = canvas.getContext("2d");
-  ctx.value = ctx
+  cur_ctx.value = ctx
   const page = pdfDoc.value.getPage(num);
   page.then((page) => {
     var width1 = page.getViewport({ scale: 1.0 }).width;
@@ -564,14 +586,14 @@ const renderPage = (num) => {
     page.render(renderContext).promise.then(() => {
       canvasVisible.value = true;
       historys.value[num-1].push({
-        data: ctx.value.getImageData(0, 0, canvas.width, canvas.height)
+        data: cur_ctx.value.getImageData(0, 0, canvas.width, canvas.height)
       })
       if(num < pdfPages.value){
         renderPage(num + 1);
       }else{
         cur_canvas.value = document.getElementById("canvas1");
         console.log("#######3", cur_canvas.value)
-        ctx.value = cur_canvas.value.getContext("2d");
+        cur_ctx.value = cur_canvas.value.getContext("2d");
         console.log('初始化比例：',scaleCount.value)
         canvasX.value = cur_canvas.value.style.left
         canvasY.value = cur_canvas.value.style.top
@@ -603,11 +625,10 @@ const saveEditedImage = (text=null) => {
   }
 }
 const MoDown = (event)=>{
-  // console.log(data_style.value)
-  if(data_style.value == 'move'){
+  // console.log(tool_type.value)
+  if(tool_type.value == 'move'){
     draged.value = true
     const el = cur_canvas.value
-    console.log("MODOWN####",cur_canvas.value)
     el.style.cursor='grabbing'
     disx.value = event.pageX - el.offsetLeft
     disy.value = event.pageY - el.offsetTop
@@ -626,7 +647,7 @@ const MoDown = (event)=>{
   }
 }
 const MoUp = () => {     
-  if(data_style.value == 'move'){
+  if(tool_type.value == 'move'){
     draged.value = false
     cur_canvas.value.style.cursor='grab'
     canvasX.value = cur_canvas.value.style.left
@@ -637,31 +658,31 @@ const MoUp = () => {
   }
 }
 const drawLine = (startp,ctrlp,endp,cl,ct) => {
-  ctx.value.beginPath();
-  ctx.value.moveTo((startp.x-cl)/scaleCount.value,(startp.y-ct)/scaleCount.value)
-  ctx.value.quadraticCurveTo((ctrlp.x-cl)/scaleCount.value,(ctrlp.y-ct)/scaleCount.value,(endp.x-cl)/scaleCount.value,(endp.y-ct)/scaleCount.value)
-  ctx.value.strokeStyle = penColor.value;//设置颜色
-  ctx.value.lineWidth = penWidth.value;//设置大小
-  ctx.value.lineCap = "round";//设置两端的形状
-  ctx.value.stroke();// stroke() 方法来绘制线条
-  ctx.value.closePath();
+  cur_ctx.value.beginPath();
+  cur_ctx.value.moveTo((startp.x-cl)/scaleCount.value,(startp.y-ct)/scaleCount.value)
+  cur_ctx.value.quadraticCurveTo((ctrlp.x-cl)/scaleCount.value,(ctrlp.y-ct)/scaleCount.value,(endp.x-cl)/scaleCount.value,(endp.y-ct)/scaleCount.value)
+  cur_ctx.value.strokeStyle = penColor.value;//设置颜色
+  cur_ctx.value.lineWidth = penWidth.value;//设置大小
+  cur_ctx.value.lineCap = "round";//设置两端的形状
+  cur_ctx.value.stroke();// stroke() 方法来绘制线条
+  cur_ctx.value.closePath();
 
 }
 const MoMove = (event)=>{
-  if(data_style.value == 'move'){
+  if(tool_type.value == 'move'){
       if(draged.value == true){
       const el = cur_canvas.value
-      const pg = cutparampage
+      // const pg = cutparampage.value
       // console.log(el.offsetLeft, el.offsetTop)
-      // console.log(disx,disy)
-      pg.style.left = el.style.left = event.pageX - disx.value + 'px';
-      pg.style.top = el.style.top = event.pageY - disy.value + 'px';
+      console.log(disx.value,disy.value)
+      cutparampage.value.style.left = el.style.left = event.pageX - disx.value + 'px';
+      cutparampage.value.style.top = el.style.top = event.pageY - disy.value + 'px';
     }
   }else{
     if(!penClick.value) return;
     const canvas = cur_canvas.value;
     const el = canvasbox.value
-    const ctx = ctx.value;
+    const ctx = cur_ctx.value;
     const stopAxisX = event.pageX;
     const stopAxisY = event.pageY;
     var scrolltop = el.scrollTop;
@@ -669,7 +690,7 @@ const MoMove = (event)=>{
     const cl = el.offsetLeft + canvas.offsetLeft - scrollleft;
     const ct = el.offsetTop + canvas.offsetTop - scrolltop;
     
-    if(data_style.value == 'pencil'){    
+    if(tool_type.value == 'pencil'){    
       var endp = {x:stopAxisX, y:stopAxisY}
       points.value.push(endp)
 
@@ -683,7 +704,7 @@ const MoMove = (event)=>{
         drawLine(beginPoint.value, controlPoint, endPoint, cl, ct);
         beginPoint.value = endPoint;
       }
-    }else if(data_style.value == 'rect'){
+    }else if(tool_type.value == 'rect'){
       //创建路径
 
       // ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -695,7 +716,7 @@ const MoMove = (event)=>{
       ctx.fillRect((startAxisX.value-cl)/scaleCount.value,(startAxisY.value - ct)/scaleCount.value,(stopAxisX-cl-startAxisX.value+cl)/scaleCount.value,(stopAxisY - ct-startAxisY.value + ct)/scaleCount.value);
       //关闭路径
       ctx.closePath();
-    }else if(data_style.value == 'highlight'){
+    }else if(tool_type.value == 'highlight'){
       
       ctx.beginPath();
       showLastHistory()
@@ -715,7 +736,7 @@ const MoMove = (event)=>{
 }
 
 const retrue = () => {
-  var history = historys.value[pageNum.value-1];
+  var history = historys.value[page_num.value-1];
   
   if(history && history.length > 1){
     
@@ -724,15 +745,20 @@ const retrue = () => {
   }
   undo.value = false
 }
-const addHistoy = (pageNum=pageNum.value, canvas=cur_canvas.value) => {
+const addHistoy = (pageNum=page_num.value, canvas=cur_canvas.value) => {
   var ctx = canvas.getContext("2d")
+
   historys.value[pageNum-1].push({
     data: ctx.getImageData(0, 0, canvas.width, canvas.height)
   })
+
+  if (historys.value[pageNum-1].length > 20) {
+    historys.value[pageNum-1].shift()
+  }
 }
 const showLastHistory = () => {
-  var history = historys.value[pageNum.value-1];
-  ctx.value.putImageData(history[history.length - 1]['data'], 0, 0)
+  var history = historys.value[page_num.value-1];
+  cur_ctx.value.putImageData(history[history.length - 1]['data'], 0, 0)
 }
 // pdf放大
 const scaleD = ()=> {
@@ -769,7 +795,7 @@ const scaleX = () => {
 
 //在画布中添加图片
 // const addimge = (image)=> {
-//   let ctx = ctx.value;
+//   let ctx = cur_ctx.value;
 //   ctx.drawImage(image,0,0);
 // }
 
@@ -815,7 +841,7 @@ const findfirstanchor = () => {
     var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
     cutDivScale.value = widthTemp/cutParamJson.value.pageSize.width
   }     
-  var ctx = ctx.value
+  var ctx = cur_ctx.value
   var canvas = cur_canvas.value
 
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1040,7 +1066,8 @@ const changeBarcodeUrl = (url) => {
 }
 
 const changeType = (type) => {
-  data_style.value = type
+  console.log("changeType",type)
+  tool_type.value = type
 }
 
 const changePenColor = (color) => {
@@ -1064,7 +1091,8 @@ provide('pageMethods', {
   changeBarcodeUrl,
   changeType,
   changePenColor,
-  updatePenWidth
+  updatePenWidth,
+  retrue
 })
 
 

@@ -29,7 +29,7 @@
         <img v-show="barcode_url" :src="barcode_url" @click="selectimg($event)"/>
       </div>
       <div v-show="false">
-        <svg ref="barcode" ></svg>
+        <svg ref="barcodeRef" ></svg>
       </div>
       <canvas id="canvas-codebar" v-show="false"/>
     </div>
@@ -126,7 +126,9 @@
 </template>
 
 <script setup>
-import { ref, inject, watch } from 'vue'
+import { ref, inject, watch, defineEmits } from 'vue'
+
+const emit = defineEmits(['update-type'])
 
 const {
   nextPage,
@@ -138,10 +140,11 @@ const {
   saveEditedImage,
   push2images,
   changeBarcodeUrl,
-  changeType,
   changePenColor,
-  updatePenWidth
+  updatePenWidth,
+  retrue
 } = inject('pageMethods')
+
 
 import JsBarcode from 'jsbarcode';
 
@@ -162,7 +165,7 @@ const barcode_url = ref(null)
 
 const canvasBoxRef = ref(null)
 const barcodeRef = ref(null)
-const canvasRef = ref(null)
+// const canvasRef = ref(null)
 
 
 
@@ -189,20 +192,27 @@ watch(type, (newVal, oldVal) => {
 
 const switchtools = (e) => {
   const type = e.currentTarget.id
+  console.log("switchtools",type)
   gettoolsbystring(type)
 }
 
-const gettoolsbystring = (type) => {
-  type.value = type
-  changeType(type) // 通过事件通知父组件
+const gettoolsbystring = (typeId) => {
+  type.value = typeId // 通过事件通知父组件
+  emit('update-type', {
+    type: typeId
+  })
   
-  if(type === 'move') {
-    canvasRef.value.style.cursor = 'grab'
-  } else if(type === 'highlight') {
-    canvasRef.value.style.cursor = 'text'
-  } else {
-    canvasRef.value.style.cursor = 'auto'
-  }
+  // console.log("getCurCanvas", getCurCanvas)
+
+  // canvasRef.value = getCurCanvas
+
+  // if(typeId === 'move') {
+  //   canvasRef.value.style.cursor = 'grab'
+  // } else if(typeId === 'highlight') {
+  //   canvasRef.value.style.cursor = 'text'
+  // } else {
+  //   canvasRef.value.style.cursor = 'auto'
+  // }
   
   // if(penClick.value) {
   //   emit('mo-up') // 通知父组件执行MoUp
