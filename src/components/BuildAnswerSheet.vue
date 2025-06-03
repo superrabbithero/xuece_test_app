@@ -92,23 +92,40 @@
 
   <div class="sheetview">
     <div class="sheeteditor" :style="{ height:clientHeight + 'px'}">
+
       <input type="file" ref="uploadpdf" @change="handleFileChange" accept=".pdf" style="display: none;">
-      <div v-if="!canvasVisible" class="cover">
-        <div class="cover-title">答 题 卡 生 成</div>
-        <div class="start-btn" @click="clickuploadpdf">点 击 上 传</div>
-        <div class="start-btn" @click="modal_show.linkxuecemodal_show=!modal_show.linkxuecemodal_show" style="margin-top: 20px;">关 联 试 卷</div>
+      <div v-show="!toolsParams?.canvasVisible" class="cover">
+        <div class="cover-historys">
+          <div class="cover-historys-item">
+            <div class="item cover-create" @click="clickuploadpdf">
+              <icon-wrapper name="RiAddLargeLine" size="40" color="#888" />
+            </div>
+            <p>上传pdf文件</p>
+          </div>
+          <div v-for="(data, index) in reversedList" :key="index" class="cover-historys-item" @click="openFromImg(data)">
+            <div  class="item cover-pdf-data">
+              <img :src="`${data?.img_urls[0]}?x-oss-process=image/resize,m_lfit,h_300`" />
+            </div>
+            <p :title="data.file_name">{{data.file_name}}</p>
+          </div>
+        </div>
+        <!-- <div class="start-btn" @click="clickuploadpdf">点 击 上 传</div>
+        <div class="start-btn" @click="modal_show.linkxuecemodal_show=!modal_show.linkxuecemodal_show" style="margin-top: 20px;">关 联 试 卷</div> -->
       </div>
-      <div v-if="canvasVisible" class="menu-bar" >
-        <div @click="clickuploadpdf" class="filenameview">
+      <div v-show="toolsParams?.canvasVisible" class="menu-bar" >
+        <!-- <div @click="clickuploadpdf" class="filenameview"> -->
+          <div class="filenameview">
           <!-- <file-pdf-one theme="filled" size="22" :strokeWidth="1"/> -->
-          <IconWrapper name="RiFilePdfLine" size="22" />
+          <IconWrapper name="RiArrowLeftSLine" size="22" @click="toolsParams.canvasVisible = false,cutparamshow = false"/>
           <div class="filename">{{filename}}</div>
         </div>
 
         <!-- 识别点编辑按钮 -->
-        <div>
+        <div class="filenameview">
             <div class="cutparameditbox">
-              <!-- <focus-one @click="showCutParam()" theme="outline" size="22" :strokeWidth="1"/> -->
+              <IconWrapper name="RiSaveLine" size="22" @click="saveData()"/>
+            </div>
+            <div class="cutparameditbox">
               <IconWrapper name="RiFocusMode" size="22" @click="showCutParam()"/>
             </div>
             <div class="cutparameditbox">
@@ -123,19 +140,19 @@
         </div>
       </div>
 
-      <div v-if="canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
-        <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="pageIndex == page_num" ref="pdfcanvas">
+      <div v-if="toolsParams?.canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
+        <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in toolsParams.pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="!isDrawing && pageIndex == toolsParams.page_num" ref="pdfcanvas">
         </canvas>
 
          <!-- 识别点展示 -->
         <div ref="cutparampage" class="cutpage" v-show="cutparamshow">
           <div ref="cutparampanel" class="cutpage-panel" v-if="cutParamJson">
-            <div class="cutpage-section" v-show="page_num%2===1"
+            <div class="cutpage-section" v-show="toolsParams?.page_num%2===1"
             :style="{ width:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.width + 'px') : '0',
                       height:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.height + 'px') : '0',
                       top:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.y + 'px') : '0',
                       left:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.x + 'px') : '0'}"></div>
-            <div class="cutpage-section"  v-for="(section,index) in cutParamJson.section" :key="index" v-show="section.pageNumber == page_num"
+            <div class="cutpage-section"  v-for="(section,index) in cutParamJson.section" :key="index" v-show="section.pageNumber == toolsParams?.page_num"
             :style="{ width:cutDivScale*section.rect.width + 'px',
                       height:cutDivScale*section.rect.height + 'px',
                       top:cutDivScale*section.rect.y + 'px',
@@ -162,7 +179,7 @@
           <IconWrapper name="RiExpandDiagonalS2Line" size="22" color="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
         </div>
 
-        <edit-tools-box v-if="canvasVisible" @update-type="updateType" />
+        <edit-tools-box v-model="toolsParams" v-if="toolsParams?.canvasVisible" @update-type="updateType" />
       </div>
     </div>            
   </div>
@@ -179,23 +196,27 @@ import {getanswercard} from "@/assets/js/xueceapi.js"
 
 import {ref, computed, onMounted, nextTick, inject, provide, watch} from 'vue'
 
+import { useOssStore } from '@/stores/ossStore';
+
+const ossStore = useOssStore();
+
 const toast = inject('toast')
 
 //工具栏参数
-// const toolsParams = ref({
-//   penWidth:4,
-//   penColor:"#000",
-//   pageNum:1,
-//   tool_type:"move",
-//   hlpenWidth:20
-// })
+const toolsParams = ref({
+  canvasVisible:false,
+  scaleCount:0.5,
+  page_num:1,
+  pdfPages:0
+})
 
 // 基本数据类型使用ref
+const isDrawing = ref(false)
 const images = ref([])
 const tool_type = ref("move")
-const canvasVisible = ref(false)
+// const canvasVisible = ref(false)
 const pdfDoc = ref(null)
-const page_num = ref(1)
+// const page_num = ref(1)
 const penColor = ref("#000")
 const hlpenColor = ref("#000")
 const penWidth = ref(4)
@@ -213,10 +234,10 @@ const historys = ref([])
 const cur_canvas = ref(null)
 const cur_ctx = ref(null)
 const undo = ref(false)
-const pdfPages = ref(0)
-const scaleCount = ref(0.5)
-const widthTemp = ref(0)
-const heightTemp = ref(0)
+// const pdfPages = ref(0)
+// const scaleCount = ref(0.5)
+const width_temp = ref(0)
+const height_temp = ref(0)
 const clientHeight = ref(document.documentElement.clientHeight - 145)
 const draged = ref(false)
 const disx = ref(0)
@@ -241,12 +262,16 @@ const fillError = ref(0)
 const barcode_url = ref(null)
 const optionOffset = ref([0])
 
+const pdfDataList = ref([])
+
 const cutparampanel = ref(null)
 const cutparampage = ref(null)
 const pdfcanvas = ref(null)
 const canvasbox = ref(null)
 const uploadpdf = ref(null)
 const imageRefs = ref(null)
+
+const isSaving = ref(false)
 
 // 嵌套对象使用ref包装整个对象
 const modal_show = ref({
@@ -273,6 +298,11 @@ const updateType = (obj) => {
   }
 }
 
+const reversedList = computed(() => {
+    // 当dataList变化时会自动重新计算
+    return [...pdfDataList.value].reverse()
+}) 
+
 const hasFreeStyleGroupsSubsectionStyle = computed(() => {
   return (subsection) => {
     if (subsection.freeStyleCellGroups) {
@@ -297,6 +327,12 @@ const hasFreeStyleGroupsSubsectionStyle = computed(() => {
 
 
 onMounted(() => {
+  // 加载历史记录
+  const jsonStr = localStorage.getItem('pdf_data')
+
+  pdfDataList.value = jsonStr ? JSON.parse(jsonStr) : []
+
+  console.log(pdfDataList.value[0])
   // 窗口大小变化监听
   window.onresize = () => {
     clientHeight.value = document.documentElement.clientHeight - 145
@@ -312,13 +348,97 @@ onMounted(() => {
   })
 })
 
+const openFromImg = (data) => {
+  filename.value = data.file_name
+
+  isDrawing.value = true
+
+
+
+  cutParamJsonStr.value = data.cut_params
+
+  if(cutParamJsonStr.value) formattedJsonStr()
+
+  toolsParams.value.canvasVisible = true
+
+  toolsParams.value.pdfPages = data?.img_urls?.length
+
+  if(!data?.img_urls[toolsParams.value.page_num - 1]){
+    toolsParams.value.page_num = 1
+  }
+
+  nextTick(() => {
+    
+    let i = 0
+    if(Array.isArray(pdfcanvas.value)){
+      pdfcanvas.value.forEach(item => {
+        historys.value.push([])
+        const ctx = item.getContext('2d')
+        drawOssImage(i,item, ctx, data?.img_urls[i]);
+        
+        i++
+      })
+
+    }else{
+      historys.value.push([])
+      const ctx = pdfcanvas.value.getContext('2d')
+      drawOssImage(i,pdfcanvas.value, ctx, data?.img_urls[i]);
+
+      
+    }
+      
+      
+  })
+
+  // 加载并绘制OSS图片
+  function drawOssImage(i,canvas, ctx, imgUrl) {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous'; // 处理跨域问题
+    
+    img.onload = () => {
+      // 设置Canvas尺寸与图片一致
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // 绘制图片（从左上角开始）
+      ctx.drawImage(img, 0, 0);
+      
+      historys.value[i].push({
+          data: ctx.getImageData(0, 0, canvas.width, canvas.height)
+        })
+      // 如果需要缩放绘制：
+      // ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      if(i==0){
+        isDrawing.value = false
+        cur_canvas.value = canvas
+        width_temp.value = cur_canvas.value.width
+        height_temp.value = cur_canvas.value.height
+        cur_ctx.value = ctx;
+
+        canvasX.value = cur_canvas.value.style.left
+        canvasY.value = cur_canvas.value.style.top
+      }
+
+      canvas.style.width = canvas.width * toolsParams.value.scaleCount + 'px'
+      canvas.style.height = canvas.height * toolsParams.value.scaleCount + 'px'
+    };
+
+    img.onerror = () => {
+      console.error('图片加载失败');
+    };
+
+    img.src = imgUrl;
+  }
+  
+}
+
 
 const formattedJsonStr = () => {
   try{
     cutParamJson.value = JSON.parse(cutParamJsonStr.value)
     // console.log(cutParamJsonStr.value)
     cutParamJsonStr.value = JSON.stringify(cutParamJson.value, null, 4);
-    console.log(JSON.stringify(cutParamJson.value).replace(/\s+/g, ''))
+    // console.log(JSON.stringify(cutParamJson.value).replace(/\s+/g, ''))
   }catch(error){
     cutParamJson.value = {"code":"error","msg":error}
   }
@@ -334,7 +454,7 @@ const changeOptionOffset = (index) => {
   }
 }
 const watermark = (text) => {
-  for(let i=1 ; i <= pdfPages.value ; i++){
+  for(let i=1 ; i <= toolsParams.value.pdfPages ; i++){
     const canvas = document.getElementById("canvas"+i)
     const ctx = canvas.getContext("2d");
     ctx.font = `bold ${canvas.height / 20}px arial`;
@@ -453,7 +573,7 @@ const drop = (img,stopAxisX,stopAxisY) => {
 
   // console.log(x,y,img.width)
 
-  ctx.drawImage(img, x/scaleCount.value, y/scaleCount.value, img.width/scaleCount.value, img.height/scaleCount.value);
+  ctx.drawImage(img, x/toolsParams.value.scaleCount, y/toolsParams.value.scaleCount, img.width/toolsParams.value.scaleCount, img.height/toolsParams.value.scaleCount);
 
 }
 
@@ -465,77 +585,95 @@ const handleFileChange = () => {
   loadPDF()
 }
 
-const loadPDF = async () => {
+const loadPDF = async (answercardInfo = null) => {
   // NOTE: 这一步要特别注意，网上很多关于pdfjs的使用教程里漏了这一步，会出现workerSrc未定义的错误
   pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry')
   // pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/build/pdf.worker.mjs'
   
-
-  // const uploadpdf = uploadpdf.value
-  const file = uploadpdf.value.files[0];
-  if (file) {
-    filename.value = file.name
-    historys.value = []
-    if(filename.value.split('.').slice(-1)[0].toLowerCase()=='pdf'){
-      const reader = new FileReader();
-      canvasVisible.value = true
-      reader.onload = async (e) => {
-        const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
-        loadingTask.promise.then((pdf) => {
-          pdfDoc.value = pdf
-          pdfPages.value = pdfDoc.value.numPages
-          nextTick(() => {
-            // this.initPages()
-            renderPage(page_num.value)
-          })
-        })
-      };
-      reader.readAsArrayBuffer(file);
-    }else{
-      
-      canvasVisible.value = true
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        pdfPages.value = 1
-        const img = new Image();
+  if(answercardInfo?.pdf_url){
+    const reader = new FileReader();
+    toolsParams.value.canvasVisible = true
+    reader.onload = async (e) => {
+      // const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
+      console.log(e)
+      const loadingTask = pdfjsLib.getDocument(answercardInfo?.pdf_url);
+      loadingTask.promise.then((pdf) => {
+        pdfDoc.value = pdf
+        toolsParams.value.pdfPages = pdfDoc.value.numPages
         nextTick(() => {
-          historys.value.push([])
-          const canvas = document.getElementById('canvas1');
-          console.log("@@@@@@@@@",canvas)
-          cur_canvas.value = canvas;
-          // console.log(cur_canvas.value)
-          const ctx = canvas.getContext("2d");
-          // 设置canvas宽高为图片宽高
-          widthTemp.value = img.width
-          cur_canvas.value.width = img.width;
-          cur_canvas.value.style.width = img.width * scaleCount.value + 'px'
-          heightTemp.value = img.height
-          cur_canvas.value.height = img.height;
-          cur_canvas.value.style.height = img.height * scaleCount.value + 'px'
-          cur_ctx.value = ctx
-          img.onload = () => {
-            // 清除之前的内容
-            cur_ctx.value.clearRect(0, 0, cur_canvas.value.width, cur_canvas.value.height);
-            // 绘制图像到画布
-            cur_ctx.value.drawImage(img, 0, 0, cur_canvas.value.width, cur_canvas.value.height);
-          };
+          // this.initPages()
+          renderPage(toolsParams.value.page_num)
         })
-        
-        img.src = e.target.result;
-      };
+      })
+    };
+  }else{
+    const file = uploadpdf.value.files[0];
+    if (file) {
+      filename.value = file.name
+      historys.value = []
+      if(filename.value.split('.').slice(-1)[0].toLowerCase()=='pdf'){
+        const reader = new FileReader();
+        toolsParams.value.canvasVisible = true
+        reader.onload = async (e) => {
+          const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
+          loadingTask.promise.then((pdf) => {
+            pdfDoc.value = pdf
+            toolsParams.value.pdfPages = pdfDoc.value.numPages
+            nextTick(() => {
+              // this.initPages()
+              renderPage(toolsParams.value.page_num)
+            })
+          })
+        };
+        reader.readAsArrayBuffer(file);
+      }else{
+        //传图
+        toolsParams.value.canvasVisible = true
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          toolsParams.value.pdfPages = 1
+          const img = new Image();
+          nextTick(() => {
+            historys.value.push([])
+            const canvas = document.getElementById('canvas1');
+            console.log("@@@@@@@@@",canvas)
+            cur_canvas.value = canvas;
+            // console.log(cur_canvas.value)
+            const ctx = canvas.getContext("2d");
+            // 设置canvas宽高为图片宽高
+            width_temp.value = img.width
+            cur_canvas.value.width = img.width;
+            cur_canvas.value.style.width = img.width * toolsParams.value.scaleCount + 'px'
+            height_temp.value = img.height
+            cur_canvas.value.height = img.height;
+            cur_canvas.value.style.height = img.height * toolsParams.value.scaleCount + 'px'
+            cur_ctx.value = ctx
+            img.onload = () => {
+              // 清除之前的内容
+              cur_ctx.value.clearRect(0, 0, cur_canvas.value.width, cur_canvas.value.height);
+              // 绘制图像到画布
+              cur_ctx.value.drawImage(img, 0, 0, cur_canvas.value.width, cur_canvas.value.height);
+            };
+          })
+          
+          img.src = e.target.result;
+        };
 
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      }
+      
     }
-    
   }
+
+    
 }
 
 
 
 const nextPage = () => {
-  if(page_num.value < pdfPages.value)
-    page_num.value++;
-    cur_canvas.value = document.getElementById("canvas"+page_num.value);
+  if(toolsParams.value.page_num < toolsParams.value.pdfPages)
+    toolsParams.value.page_num++;
+    cur_canvas.value = document.getElementById("canvas"+toolsParams.value.page_num);
     cur_ctx.value = cur_canvas.value.getContext("2d");
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
@@ -543,9 +681,9 @@ const nextPage = () => {
     // this.addHistoy();
 }
 const prePage = () => {
-  if(page_num.value > 1)
-    page_num.value--;
-    cur_canvas.value = document.getElementById("canvas"+page_num.value);
+  if(toolsParams.value.page_num > 1)
+    toolsParams.value.page_num--;
+    cur_canvas.value = document.getElementById("canvas"+toolsParams.value.page_num);
     cur_ctx.value = cur_canvas.value.getContext("2d");
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
@@ -556,9 +694,7 @@ const renderPage = (num) => {
   historys.value.push([])
   var canvasId = 'canvas' + num
   const canvas = document.getElementById(canvasId);
-  console.log("######1",canvas)
   cur_canvas.value = canvas;
-  console.log("######2",cur_canvas.value)
   const ctx = canvas.getContext("2d");
   cur_ctx.value = ctx
   const page = pdfDoc.value.getPage(num);
@@ -571,11 +707,11 @@ const renderPage = (num) => {
       myscale = 1654/width1
     }
     const viewport = page.getViewport({ scale: myscale });
-    cur_canvas.value.style.height = viewport.height * scaleCount.value + "px";
-    heightTemp.value = viewport.height
+    cur_canvas.value.style.height = viewport.height * toolsParams.value.scaleCount + "px";
+    height_temp.value = viewport.height
     cur_canvas.value.height = viewport.height;
-    cur_canvas.value.style.width = viewport.width * scaleCount.value + "px";
-    widthTemp.value = viewport.width
+    cur_canvas.value.style.width = viewport.width * toolsParams.value.scaleCount + "px";
+    width_temp.value = viewport.width
     cur_canvas.value.width = viewport.width
     
     const renderContext = {
@@ -584,17 +720,17 @@ const renderPage = (num) => {
     };
 
     page.render(renderContext).promise.then(() => {
-      canvasVisible.value = true;
+      toolsParams.value.canvasVisible = true;
       historys.value[num-1].push({
         data: cur_ctx.value.getImageData(0, 0, canvas.width, canvas.height)
       })
-      if(num < pdfPages.value){
+      if(num < toolsParams.value.pdfPages){
         renderPage(num + 1);
       }else{
         cur_canvas.value = document.getElementById("canvas1");
         console.log("#######3", cur_canvas.value)
         cur_ctx.value = cur_canvas.value.getContext("2d");
-        console.log('初始化比例：',scaleCount.value)
+        console.log('初始化比例：',toolsParams.value.scaleCount)
         canvasX.value = cur_canvas.value.style.left
         canvasY.value = cur_canvas.value.style.top
       }
@@ -608,7 +744,7 @@ const saveEditedImage = (text=null) => {
     watermark(text)
   }
   var date = new Date()
-  for(let i=1 ; i <= pdfPages.value ; i++){
+  for(let i=1 ; i <= toolsParams.value.pdfPages ; i++){
     const canvas = document.getElementById("canvas"+i)
     const ctx = canvas.getContext("2d")
     const editedImage = canvas.toDataURL("image/jpeg");
@@ -659,8 +795,8 @@ const MoUp = () => {
 }
 const drawLine = (startp,ctrlp,endp,cl,ct) => {
   cur_ctx.value.beginPath();
-  cur_ctx.value.moveTo((startp.x-cl)/scaleCount.value,(startp.y-ct)/scaleCount.value)
-  cur_ctx.value.quadraticCurveTo((ctrlp.x-cl)/scaleCount.value,(ctrlp.y-ct)/scaleCount.value,(endp.x-cl)/scaleCount.value,(endp.y-ct)/scaleCount.value)
+  cur_ctx.value.moveTo((startp.x-cl)/toolsParams.value.scaleCount,(startp.y-ct)/toolsParams.value.scaleCount)
+  cur_ctx.value.quadraticCurveTo((ctrlp.x-cl)/toolsParams.value.scaleCount,(ctrlp.y-ct)/toolsParams.value.scaleCount,(endp.x-cl)/toolsParams.value.scaleCount,(endp.y-ct)/toolsParams.value.scaleCount)
   cur_ctx.value.strokeStyle = penColor.value;//设置颜色
   cur_ctx.value.lineWidth = penWidth.value;//设置大小
   cur_ctx.value.lineCap = "round";//设置两端的形状
@@ -713,16 +849,16 @@ const MoMove = (event)=>{
       ctx.fillStyle="#000";
       //绘制矩形
       showLastHistory()
-      ctx.fillRect((startAxisX.value-cl)/scaleCount.value,(startAxisY.value - ct)/scaleCount.value,(stopAxisX-cl-startAxisX.value+cl)/scaleCount.value,(stopAxisY - ct-startAxisY.value + ct)/scaleCount.value);
+      ctx.fillRect((startAxisX.value-cl)/toolsParams.value.scaleCount,(startAxisY.value - ct)/toolsParams.value.scaleCount,(stopAxisX-cl-startAxisX.value+cl)/toolsParams.value.scaleCount,(stopAxisY - ct-startAxisY.value + ct)/toolsParams.value.scaleCount);
       //关闭路径
       ctx.closePath();
     }else if(tool_type.value == 'highlight'){
       
       ctx.beginPath();
       showLastHistory()
-      ctx.moveTo((startAxisX.value - cl)/scaleCount.value, (startAxisY.value - ct)/scaleCount.value);//moveTo(x,y) 定义线条开始坐标
+      ctx.moveTo((startAxisX.value - cl)/toolsParams.value.scaleCount, (startAxisY.value - ct)/toolsParams.value.scaleCount);//moveTo(x,y) 定义线条开始坐标
 
-      ctx.lineTo((stopAxisX-cl)/scaleCount.value,(startAxisY.value - ct)/scaleCount.value );//lineTo(x,y) 定义线条结束坐标
+      ctx.lineTo((stopAxisX-cl)/toolsParams.value.scaleCount,(startAxisY.value - ct)/toolsParams.value.scaleCount );//lineTo(x,y) 定义线条结束坐标
 
       ctx.strokeStyle = hlpenColor.value;//设置颜色
       ctx.lineWidth = hlpenWidth.value;//设置大小
@@ -736,7 +872,7 @@ const MoMove = (event)=>{
 }
 
 const retrue = () => {
-  var history = historys.value[page_num.value-1];
+  var history = historys.value[toolsParams.value.page_num-1];
   
   if(history && history.length > 1){
     
@@ -745,7 +881,7 @@ const retrue = () => {
   }
   undo.value = false
 }
-const addHistoy = (pageNum=page_num.value, canvas=cur_canvas.value) => {
+const addHistoy = (pageNum=toolsParams.value.page_num, canvas=cur_canvas.value) => {
   var ctx = canvas.getContext("2d")
 
   historys.value[pageNum-1].push({
@@ -757,40 +893,43 @@ const addHistoy = (pageNum=page_num.value, canvas=cur_canvas.value) => {
   }
 }
 const showLastHistory = () => {
-  var history = historys.value[page_num.value-1];
+  var history = historys.value[toolsParams.value.page_num-1];
   cur_ctx.value.putImageData(history[history.length - 1]['data'], 0, 0)
 }
 // pdf放大
 const scaleD = ()=> {
-  if (scaleCount.value == 2.0) {
+  if (toolsParams.value.scaleCount == 2.0) {
     return
   }
-  scaleCount.value =  parseFloat(scaleCount.value) + 0.1
-  scaleCount.value = parseFloat(scaleCount.value).toFixed(1)
+  toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) + 0.1
+  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount).toFixed(1)
   // console.log(cur_canvas.value.style.width)
-  // console.log('放大：'+ scaleCount.value)
+  // console.log('放大：'+ toolsParams.value.scaleCount)
   pdfcanvas.value.forEach(item => {
-    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
-    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
-    item.style.width = widthTemp + 'px'
-    item.style.height = heightTemp + 'px'
+    var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var height_temp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
+    item.style.width = width_temp + 'px'
+    item.style.height = height_temp + 'px'
   })
 }
 // pdf缩小
 const scaleX = () => {
-  if (scaleCount.value == 0.1) {
+  if (toolsParams.value.scaleCount == 0.1) {
     return
   }
-  scaleCount.value =  parseFloat(scaleCount.value) - 0.1
-  scaleCount.value = parseFloat(scaleCount.value).toFixed(1)
+  toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) - 0.1
+  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount).toFixed(1)
+
+  console.log(toolsParams.value)
+
   pdfcanvas.value.forEach(item => {
-    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
-    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
+    var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var height_temp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
     // console.log('缩小后的宽高：',widthTemp,heightTemp)
-    item.style.width = widthTemp + 'px'
-    item.style.height = heightTemp + 'px'
+    item.style.width = width_temp + 'px'
+    item.style.height = height_temp + 'px'
   })
-  // console.log('缩小'+scaleCount.value)
+  // console.log('缩小'+toolsParams.value.scaleCount)
 }
 
 //在画布中添加图片
@@ -801,22 +940,27 @@ const scaleX = () => {
 
 const showCutParam = ()=>{
   
-  if(cutParamJson.value == null){
-    modal_show.value.linkxuecemodal_show = true
+  if(cutParamJson?.value == null){
+    modal_show.value.linkxuecemodal_show = false
     // console.log(this.linkxuecemodal_show)
     return
   }
   if (cutparamshow.value) {
     cutparamshow.value = false;
   }else {
-    findfirstanchor()
+    console.log("right here")
+    const result = findfirstanchor()
+    console.log(result)
+    if (!result) {
+      return
+    }
     var json = cutParamJson.value
     // console.log(json.pageSize.width,json.pageSize.height)
-    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
-    var heightTemp = heightTemp.value * parseFloat(scaleCount.value)
-    let item = cutparampage
-    item.style.width = widthTemp + 'px'
-    item.style.height = heightTemp + 'px'
+    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
+    
+    cutparampage.value.style.width = widthTemp + 'px'
+    cutparampage.value.style.height = heightTemp + 'px'
 
     var panel = cutparampanel.value
 
@@ -828,18 +972,22 @@ const showCutParam = ()=>{
 
     panel.style.width = widthTemp + 'px'
     panel.style.height = heightTemp + 'px'
-    panel.style.marginTop = (anchorxy.value.y-3)*scaleCount.value + 'px'
-    panel.style.marginLeft = (anchorxy.value.x-3)*scaleCount.value + 'px'
+    panel.style.marginTop = (anchorxy.value.y-3)*toolsParams.value.scaleCount + 'px'
+    panel.style.marginLeft = (anchorxy.value.x-3)*toolsParams.value.scaleCount + 'px'
     cutparamshow.value = true
   }
 }
 
 
 const findfirstanchor = () => {
-  
-  if(cutParamJson.value.pageSize.width){
-    var widthTemp = widthTemp.value * parseFloat(scaleCount.value)
-    cutDivScale.value = widthTemp/cutParamJson.value.pageSize.width
+
+  if(cutParamJson?.value?.pageSize?.width){
+    // var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    cutDivScale.value = width_temp.value * parseFloat(toolsParams.value.scaleCount)/cutParamJson.value.pageSize.width
+    console.log(cutDivScale.value)
+  }else{
+    console.log("参数信息中没找到")
+    return false
   }     
   var ctx = cur_ctx.value
   var canvas = cur_canvas.value
@@ -870,9 +1018,11 @@ const findfirstanchor = () => {
   if (blackRectangleFound) {
     anchorxy.value = {x:minX,y:minY}
     // console.log(minX,minY)
+    return true
   } else {
     anchorxy.value = {x:0,y:0}
     console.log('No black rectangle found.');
+    return false
   }
 }
 
@@ -908,15 +1058,19 @@ const downloadPDF = () => {
 const fillAnswerCard = () => {
   console.log(anchorxy.value)
   if(!(anchorxy.value.x || anchorxy.value.x)){
-    findfirstanchor()
+    const result = findfirstanchor()
+    console.log(result)
+    if (!result) {
+      return
+    }
   }
   console.log(anchorxy.value)
   let anchorxy = anchorxy.value
-  let scale = cutDivScale.value/scaleCount.value
+  let scale = cutDivScale.value/toolsParams.value.scaleCount
   let pageNum = 0
   let canvas = null
   let ctx = null
-  var pdfPages = pdfPages.value
+  var pdfPages = toolsParams.value.pdfPages
   // var that = this
   var stuIdX = null
   var stuIdY = null
@@ -1078,6 +1232,84 @@ const updatePenWidth = (width) => {
   penWidth.value = width
 }
 
+const saveData = async () => {
+  var index = 0
+  pdfDataList.value.forEach((data) => {
+    if(data.file_name == filename.value){
+      return
+    }else{
+      index++
+    }
+  })
+
+  isSaving.value = true
+  //上传图片到oss
+  var files = []
+  try{
+    for(let i=1 ; i <= toolsParams.value.pdfPages ; i++){
+      const canvas = document.getElementById("canvas"+i)
+      if (!canvas) {
+        throw new Error('Canvas 元素未找到');
+      }
+
+      // 2. 将 canvas 转换为 blob (异步操作)
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/png', 1); // 1 表示质量最高
+      });
+
+      if (!blob) {
+        throw new Error('Canvas 转换失败');
+      }
+
+      // 3. 将 blob 转换为 file 对象
+      const file = new File([blob], 'canvas-image.png', {
+        type: 'image/png',
+        lastModified: Date.now(),
+      });
+
+      files.push(file)
+    }
+
+    // 4. 使用 OSS store 上传
+    const uploadResult = await ossStore.MultiUpload(files, 'pdfs/images/');
+
+    console.log(uploadResult[0].data)
+
+    // 5. 处理上传结果
+    const urls = uploadResult.map(item => `https://superrabbithero-appmanage.oss-cn-beijing.aliyuncs.com/${item.data?.key}`);
+
+
+    if(index == pdfDataList.value.length ){
+      pdfDataList.value.push({
+        file_name:filename.value,
+        img_urls:urls,
+        cut_params:JSON.stringify(cutParamJson.value).replace(/\s+/g, '')
+      })
+      //控制最多本地存3条
+      if(index >= 3){
+        pdfDataList.value.shift()
+      }
+    }else{
+      pdfDataList.value[index].img_urls = urls
+    }
+
+    const newJson = JSON.stringify(pdfDataList.value)
+
+    localStorage.setItem('pdf_data', newJson)
+
+  } catch (error) {
+    console.error('保存并上传失败:', error);
+    throw error; // 抛出错误以便调用者处理
+  } 
+
+  //保存数据到本地indexDB，本地最多保存5条
+  
+  //后续如果登录，将数据保存到后端数据库
+
+}
+
 // 提供方法给子组件
 provide('pageMethods', {
   nextPage,
@@ -1127,16 +1359,15 @@ provide('pageMethods', {
 }
 
 .filenameview{
-  display: inline-block;
-  width: fit-content;
-  margin-bottom: 5px;
+  display: flex;
   cursor: pointer;
+  align-items: center;
 }
 
 .filename { 
   margin-left: 5px;
-  display: inline-block;
-  vertical-align: 3px;
+  /*display: inline-block;
+  vertical-align: 3px;*/
   font-family: auto;
   font-weight: 200;
 }
@@ -1145,6 +1376,7 @@ provide('pageMethods', {
   margin-left: 15px;
   cursor: pointer;
   display: inline-block;
+  line-height: 0;
 }
 
 .cutparameditbox:hover {
@@ -1156,13 +1388,66 @@ provide('pageMethods', {
   width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   border-radius: 12px;
   background-color: var(--canvas-bgc);
 }
 
+.cover-historys {
+  width: 100%;
+  padding: 40px;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.cover-historys-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cover-historys-item > p{
+/*  margin: 14px 0;*/
+  font-size: 15px;
+  letter-spacing: 1px;
+  font-weight: 500;
+  max-width: 100px;
+  white-space: nowrap; 
+  overflow: hidden;         /* 隐藏超出部分 */
+  text-overflow: ellipsis;  /* 超出时显示省略号 */
+}
+
+.cover-historys-item .item{
+  background-color: var(--content-bgc);
+  box-shadow: var(--box-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 1px 1px #8882;
+  transition: 0.1s ease box-shadow;
+}
+
+.cover-historys-item .item:hover{
+  box-shadow: var(--box-shadow);
+}
+
+.cover-create {
+  width: 150px;
+  height: 200px;
+}
+
+
+.cover-pdf-data {
+  height: 200px;
+  overflow: hidden;
+}
+
+.cover-pdf-data > img{
+  height: 100%;
+}
 
 .cover-title {
   font-family: SmileySans-Oblique;
@@ -1212,6 +1497,8 @@ provide('pageMethods', {
   background: none;
   position: absolute;
   pointer-events: none;
+  top:1rem;
+  left: 1rem;
 }
 
 .cutpage-panel{
@@ -1241,6 +1528,8 @@ provide('pageMethods', {
 .menu-bar {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
 }
 
 

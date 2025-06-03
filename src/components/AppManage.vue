@@ -119,15 +119,15 @@
                 </div>
                 <div class="package-other-info">
                   <label>版本号: <input type="text" placeholder="请输入版本号" v-model="packageInfo.version" /></label>
-                  <icon-wrapper v-if="progress <= 0" class="table-do"  name="RiDeleteBin2Line" @click="clearFile"/>
+                  <icon-wrapper v-if="ossStore.progress <= 0" class="table-do"  name="RiDeleteBin2Line" @click="clearFile"/>
                 </div>
               </div>
             </div>
-            <div class="progress-box" v-if="progress > 0">
-              <icon-wrapper class="rotating-element" v-if="progress < 100" name="RiLoader2Line" size="16"/>
+            <div class="progress-box" v-if="ossStore.progress > 0">
+              <icon-wrapper class="rotating-element" v-if="ossStore.progress < 100" name="RiLoader2Line" size="16"/>
               <icon-wrapper v-else name="RiCheckboxCircleLine" size="16"/>
               <div class="progress-bar">
-                <div class="progressing" :style="{width:progress + '%'}"></div>
+                <div class="progressing" :style="{width:ossStore.progress + '%'}"></div>
               </div>
             </div>
           </div>
@@ -191,7 +191,7 @@
 import { ref, onMounted, watch, computed, inject} from 'vue';
 import { usePackageStore } from '@/stores/packageStore';
 import { useOssStore } from '@/stores/ossStore';
-import { ossMultipartUpload } from '@/api/ossApi';
+// import { ossMultipartUpload } from '@/api/ossApi';
 import { parseAPK } from '@/assets/js/utils'
 import router from '@/router'
 
@@ -224,9 +224,9 @@ const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:fals
 const file = ref(null)
 
 const progress = ref(0)
-const uploadResult = ref(null)
-const error = ref(null)
-const isUploading = ref(false)
+// const uploadResult = ref(null)
+// const error = ref(null)
+// const isUploading = ref(false)
 const packageInfo = ref(null)
 const isParsing = ref(false)
 
@@ -417,26 +417,42 @@ const uploadFile = () => {
     'oss_key' : null,
     'icon' : packageInfo.value.icon
   }
-  ossStore.getStsToken().then(() => {
+  // ossStore.getStsToken().then(() => {
 
-    ossUpload().then(() => {
-      packageInfoJson.oss_key = uploadResult.value.key
-      packageInfoJson.create_time = Date.now()
+  //   ossUpload().then(() => {
+  //     packageInfoJson.oss_key = uploadResult.value.key
+  //     packageInfoJson.create_time = Date.now()
       
-      packageStore.createPackage(packageInfoJson).then(() => {
-        packageStore.fetchPackages()
-        clearFile()
-        modal_show.value.fileUpload_show = false
-      }).catch(error => {
-        console.error('上传失败', error);
-      })
-    }).catch((err) => {
-      console.log('上传文件到oss失败',err)
+  //     packageStore.createPackage(packageInfoJson).then(() => {
+  //       packageStore.fetchPackages()
+  //       clearFile()
+  //       modal_show.value.fileUpload_show = false
+  //     }).catch(error => {
+  //       console.error('上传失败', error);
+  //     })
+  //   }).catch((err) => {
+  //     console.log('上传文件到oss失败',err)
+  //   })
+  // }).catch( err => {
+  //   console.log('获取stsToken失败',err)
+  // })
+  
+  ossStore.MultiUpload(file.value).then((rst) => {
+    console.log(rst)
+    packageInfoJson.oss_key = rst[0].data.key
+    console.log(packageInfoJson.oss_key)
+    packageInfoJson.create_time = Date.now()
+    
+    packageStore.createPackage(packageInfoJson).then(() => {
+      packageStore.fetchPackages()
+      clearFile()
+      modal_show.value.fileUpload_show = false
+    }).catch(error => {
+      console.error('上传失败', error);
     })
   }).catch( err => {
-    console.log('获取stsToken失败',err)
+    console.error('文件上传失败',err)
   })
-  
   
 }
 
@@ -449,36 +465,36 @@ const deletePackage = async (id) => {
   })
 }
 
-const ossUpload = async () => {
-  // console.log('ossUpload')
+// const ossUpload = async () => {
+//   // console.log('ossUpload')
 
-  if (!file.value) return;
+//   if (!file.value) return;
 
-  isUploading.value = true;
-  error.value = null;
+//   isUploading.value = true;
+//   error.value = null;
 
-  try {
-    //添加进度回调（可选）
-    const options = {
-      progress: (p) => {
-        progress.value = Math.round(p * 100);
-      }
-    };
+//   try {
+//     //添加进度回调（可选）
+//     const options = {
+//       progress: (p) => {
+//         progress.value = Math.round(p * 100);
+//       }
+//     };
 
-    const path = process.env.NODE_ENV === 'development' ? 'test/packages/' : 'packages/'
+//     const path = process.env.NODE_ENV === 'development' ? 'test/packages/' : 'packages/'
 
-    uploadResult.value = await ossMultipartUpload(
-      file.value, 
-      path, 
-      ossStore.stsToken,
-      options
-    );
-  } catch (err) {
-    error.value = `上传失败: ${err.message}`;
-  } finally {
-    isUploading.value = false;
-  }
-}
+//     uploadResult.value = await ossMultipartUpload(
+//       file.value, 
+//       path, 
+//       ossStore.stsToken,
+//       options
+//     );
+//   } catch (err) {
+//     error.value = `上传失败: ${err.message}`;
+//   } finally {
+//     isUploading.value = false;
+//   }
+// }
 
 const isIpaOrApkOrPeFile = (file) => {
   // 判断文件类型是否为IPA或APK
@@ -490,8 +506,7 @@ const isIpaOrApkOrPeFile = (file) => {
  const clearFile = () => {
   packageInfo.value = null;
   isParsing.value = false;
-  uploadResult.value = null;
-  progress.value = 0
+  ossStore.progress = 0
   file.value = null
  }
 

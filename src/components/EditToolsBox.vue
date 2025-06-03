@@ -1,23 +1,5 @@
 <template>
-  <div class="modal" id="autocreate_modal" style="width:400px;height: 300px;" v-show="autocreate_show || codebar_show">
-    
-    <div class="modal-bar" @mousedown="dragdown($event,'autocreate_modal')"  @mouseup="dragup">
-      <div class="modal-close" @click="autocreate_show = codebar_show = false"></div>
-    </div>
-    <!-- 自动填涂 -->
-    <div class="modal-content" v-show="autocreate_show">
-      <div class="modal-line">
-        <label>班级填涂：</label>
-        <IconWrapper iconName="AddOne" theme="outline" :strokeWidth='1' size="18" />
-      </div>
-      <canvas id="canvas-classno" v-show="false"/>
-      <div class="modal-line">
-        <label>学号填涂：</label>
-        <IconWrapper iconName="AddOne" theme="outline" :strokeWidth='1' size="18" />
-      </div>
-      <canvas id="canvas-stuno" v-show="false"/>
-    </div>
-
+  <my-modal v-model="codebar_show" :dragable="true">
     <!-- 生成条形码 -->
     <div class="modal-content" v-show="codebar_show">
       <div class="modal-line center line14">
@@ -34,7 +16,7 @@
       <canvas id="canvas-codebar" v-show="false"/>
     </div>
 
-  </div>
+  </my-modal>
   <div  class="touch-toolsbox">
     <div class="toolsbox" ref="toolsbox" id="toolsbox">
       <div class="edit-group">
@@ -75,7 +57,7 @@
           <icon-wrapper name="RiArrowGoBackLine" color="#eee" size="25" />
         </div>
       </div>
-      <div class="edit-group zoom" v-if="$parent.canvasVisible">
+      <div class="edit-group zoom" v-if="modelValue?.canvasVisible">
         <div class="edit-item" @click="scaleD">
           <icon-wrapper name="RiZoomInLine" color="#eee" size="25" />
         </div>
@@ -83,15 +65,15 @@
           <icon-wrapper name="RiZoomOutLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
-          {{parseInt($parent.scaleCount*100)}}%
+          {{parseInt(modelValue?.scaleCount*100)}}%
         </div>
       </div>
-      <div class="edit-group pag" v-if="canvasVisible">
+      <div class="edit-group pag" v-if="modelValue?.canvasVisible">
         <div class="edit-item" @click="prePage">
           <icon-wrapper name="RiArrowLeftSLine" color="#eee" size="25" />
         </div>
         <div class="word-view">
-          {{$parent.pageNum}} / {{$parent.pdfPages}}
+          {{modelValue?.page_num}} / {{modelValue?.pdfPages}}
         </div>
         <div class="edit-item"  @click="nextPage">
           <icon-wrapper name="RiArrowRightSLine" color="#eee" size="25" />
@@ -102,9 +84,6 @@
           <icon-wrapper name="RiDownloadLine" color="#eee" size="25" />
         </div>
         <input type="text" id="download-add-watermark" :class="{'edit-input d-watermark':true,'wmshow':watermarktext}" placeholder="默认无水印" v-model="watermarktext"/>
-        <div class="edit-item" v-show="false" @click="autocreate_show=!autocreate_show">
-          <IconWrapper  iconName="RobotTwo" theme="outline" :strokeWidth='1' defaultColor="#eee" size="25" />
-        </div>
         <div class="edit-item" @click="codebar_show=!codebar_show">
           <IconWrapper name="RiBarcodeBoxLine" color="#eee" size="25" />
         </div>
@@ -126,9 +105,17 @@
 </template>
 
 <script setup>
-import { ref, inject, watch, defineEmits } from 'vue'
+import { ref, inject, watch, defineEmits, defineProps } from 'vue'
 
-const emit = defineEmits(['update-type'])
+const emit = defineEmits(['update-type','update:modelValue'])
+
+defineProps({
+  modelValue:{
+    type:Object,
+    required: true
+  },
+})
+
 
 const {
   nextPage,
@@ -159,7 +146,6 @@ const disy = ref(0)
 const fullscreen = ref(false)
 const watermarktext = ref("")
 const barcodeData = ref("")
-const autocreate_show = ref(false)
 const codebar_show = ref(false)
 const barcode_url = ref(null)
 
@@ -301,6 +287,11 @@ const requestFullscreen = (element) => {
 }
 
 const generateBarcode = () => {
+
+  if(!barcodeRef.value || !barcodeData.value){
+    return
+  }
+
   JsBarcode(barcodeRef.value, barcodeData.value, {
     height: 100,
     fontSize: 18,
