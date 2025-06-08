@@ -1,28 +1,35 @@
 <template>
-  <my-modal v-model="modal_show.linkxuecemodal_show" :dragable="true" >
+  <div v-show="isPageLoading" class="au-full-loading">
+    <loading-com></loading-com>
+  </div>
+  <my-modal v-model="modal_show.linkxuecemodal_show"  :dragable="true" >
     <!-- 自动填涂 -->
     <div class="modal-content">
       <div class="modal-line">
         <label>环境：</label>
-        <input type="radio" id="option1" name="env" value="1" v-model="env">
+        <input type="radio" id="option1" name="env" value="test1" v-model="env">
         <label for="option1">test1</label>
-        <input type="radio" id="option2" name="env" value="2" v-model="env" checked>
+        <input type="radio" id="option2" name="env" value="test2" v-model="env" >
         <label for="option2">test2</label>
       </div>
       <div class="modal-line">
-        <label>类型：</label>
-        <input type="radio" id="option3" name="papertype" value="0" v-model="papertype" checked>
+        <label>类型：
+
+        </label>
+        <input type="radio" id="option3" name="papertype" value="exam" v-model="papertype">
         <label for="option3">考试</label>
-        <input type="radio" id="option4" name="papertype" value="1" v-model="papertype">
+        <input type="radio" id="option4" name="papertype" value="classwork" v-model="papertype">
         <label for="option4">作业</label>
       </div>
       <div class="modal-line">
         <label>考试/作业id：</label>
-        <input type="text" v-model="paperid" />
-        <button @click="linktoXuece()">关联</button>
+        <input type="text" v-model="paperid" style="width: 4rem;" />
+        <div>{{linkErrorMsg}}</div>
       </div>
-      <div class="modal-line" v-show="pdfUrl">
-        <button @click="downloadPDF()">下载并导入</button>
+      <div class="modal-line" style="justify-content: flex-end;">
+        
+        <button @click="linktoXuece()" >关联</button>
+        <!-- <button @click="downloadPDF()" v-show="pdfUrl">导入</button> -->
       </div>
     </div>
   </my-modal>
@@ -94,34 +101,14 @@
     <div class="sheeteditor" :style="{ height:clientHeight + 'px'}">
 
       <input type="file" ref="uploadpdf" @change="handleFileChange" accept=".pdf" style="display: none;">
-      <div v-show="!toolsParams?.canvasVisible" class="cover">
-        <div class="cover-historys">
-          <div class="cover-historys-item">
-            <div class="item cover-create" @click="clickuploadpdf">
-              <icon-wrapper name="RiAddLargeLine" size="40" color="#888" />
-            </div>
-            <p>上传pdf文件</p>
-          </div>
-          <div v-for="(data, index) in reversedList" :key="index" class="cover-historys-item" @click="openFromImg(data)">
-            <div  class="item cover-pdf-data">
-              <img :src="`${data?.img_urls[0]}?x-oss-process=image/resize,m_lfit,h_300`" />
-            </div>
-            <p :title="data.file_name">{{data.file_name}}</p>
-          </div>
-        </div>
-        <!-- <div class="start-btn" @click="clickuploadpdf">点 击 上 传</div>
-        <div class="start-btn" @click="modal_show.linkxuecemodal_show=!modal_show.linkxuecemodal_show" style="margin-top: 20px;">关 联 试 卷</div> -->
-      </div>
-      <div v-show="toolsParams?.canvasVisible" class="menu-bar" >
-        <!-- <div @click="clickuploadpdf" class="filenameview"> -->
-          <div class="filenameview">
-          <!-- <file-pdf-one theme="filled" size="22" :strokeWidth="1"/> -->
+      <div class="menu-bar" v-show="toolsParams?.canvasVisible">
+        <div class="filenameview">
           <IconWrapper name="RiArrowLeftSLine" size="22" @click="toolsParams.canvasVisible = false,cutparamshow = false"/>
           <div class="filename">{{filename}}</div>
         </div>
 
         <!-- 识别点编辑按钮 -->
-        <div class="filenameview">
+        <div  class="filenameview">
             <div class="cutparameditbox">
               <IconWrapper name="RiSaveLine" size="22" @click="saveData()"/>
             </div>
@@ -138,9 +125,74 @@
               <div class="filename">填涂</div>
             </div>
         </div>
-      </div>
 
-      <div v-if="toolsParams?.canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
+        <div v-show="!toolsParams?.canvasVisible" class="filenameview">
+          <IconWrapper name="RiArrowLeftSLine" size="22" @click="toolsParams.canvasVisible = false,cutparamshow = false"/>
+        </div>
+      </div>
+      <div v-show="!toolsParams?.canvasVisible" class="cover">
+        <div class="cover-historys">
+          <div class="cover-historys-item">
+            <div class="item cover-create" >
+              <div class="upload-icon" @click="clickuploadpdf">
+                <icon-wrapper name="RiAddLargeLine" size="40"/>
+              </div>
+              <div style="width:80px;height:1px;background: #8883;"></div>
+              <div class="upload-icon" @click="modal_show.linkxuecemodal_show = true">
+                <icon-wrapper name="RiLinksLine" size="40"/>
+              </div>
+            </div>
+            <p>上传pdf文件</p>
+          </div>
+          <div v-for="(data, index) in reversedList" :key="index" class="cover-historys-item">
+            <div class="item cover-pdf-data" @click="openFromImg(data)">
+              <img :src="`${data?.img_urls[0]}?x-oss-process=image/resize,m_lfit,h_300`" />
+            </div>
+            <p :title="data.file_name">{{data.file_name}}</p>
+          </div>
+        </div>
+        <div class="cover-links" v-if="reversedLinkList.length > 0">
+          <div class="table-content">
+            <table class="au-table">
+              <thead>
+                <tr>
+                  <th>
+                    <div class="au-table-item">
+                      <icon-wrapper name="RiLinksFill"  size="17" color="#ffc848"/>
+                      <div>历史关联</div>
+                    </div>
+                  </th>
+                  <th>环境</th>
+                  <th>考试/作业id</th>
+                  <th>时间</th>
+                </tr>
+              </thead>
+              <tbody>                
+                <tr v-for="(data,index) in reversedLinkList" :key="index" @click="openFromLinks(data)">
+                  <td>
+                    <div class="au-table-item">
+                      {{data.name}}
+                      <div class="au-table-item-tag">
+                        {{data.paper_type == "exam" ? "考试":"作业"}}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {{data.env}}
+                  </td>
+                  <td>
+                    {{data.paper_id}}
+                  </td>
+                  <td>
+                    {{data.update_time || "-"}}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div v-show="toolsParams?.canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
         <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in toolsParams.pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="!isDrawing && pageIndex == toolsParams.page_num" ref="pdfcanvas">
         </canvas>
 
@@ -191,8 +243,13 @@
 import * as pdfjsLib from "pdfjs-dist";
 
 import EditToolsBox from "@/components/EditToolsBox.vue";
+
+import loadingCom from "@/components/motion/LoadingJumpingDots.vue";
+
 import key from 'keymaster'
-import {getanswercard} from "@/assets/js/xueceapi.js"
+import {getFormattedDateTime} from "@/assets/js/utils.js"
+
+import xueceApi from "@/api/endpoints/xuece"
 
 import {ref, computed, onMounted, nextTick, inject, provide, watch} from 'vue'
 
@@ -209,6 +266,8 @@ const toolsParams = ref({
   page_num:1,
   pdfPages:0
 })
+
+const isPageLoading = ref(false)
 
 // 基本数据类型使用ref
 const isDrawing = ref(false)
@@ -251,10 +310,13 @@ const anchorxy = ref({x:0, y:0})
 const cutParamJsonStr = ref("")
 const cutParamJson = ref({})
 const pdfUrl = ref(null)
+
+const linkErrorMsg = ref(null)
+
 const cutDivScale = ref(1)
-const papertype = ref(0)
+const papertype = ref("exam")
 const paperid = ref(18079)
-const env = ref(1)
+const env = ref("test1")
 const fillObj = ref(true)
 const fillSubj = ref(true)
 const fillNum = ref(true)
@@ -263,6 +325,7 @@ const barcode_url = ref(null)
 const optionOffset = ref([0])
 
 const pdfDataList = ref([])
+const pdfFromLinkDataList = ref([])
 
 const cutparampanel = ref(null)
 const cutparampage = ref(null)
@@ -303,6 +366,11 @@ const reversedList = computed(() => {
     return [...pdfDataList.value].reverse()
 }) 
 
+const reversedLinkList = computed(() => {
+    // 当dataList变化时会自动重新计算
+    return [...pdfFromLinkDataList.value].reverse()
+}) 
+
 const hasFreeStyleGroupsSubsectionStyle = computed(() => {
   return (subsection) => {
     if (subsection.freeStyleCellGroups) {
@@ -332,6 +400,11 @@ onMounted(() => {
 
   pdfDataList.value = jsonStr ? JSON.parse(jsonStr) : []
 
+  const jsonStr2 = localStorage.getItem("linkDataList")
+
+  pdfFromLinkDataList.value = jsonStr2 ? JSON.parse(jsonStr2) : []
+
+
   console.log(pdfDataList.value[0])
   // 窗口大小变化监听
   window.onresize = () => {
@@ -349,17 +422,19 @@ onMounted(() => {
 })
 
 const openFromImg = (data) => {
+
+  isPageLoading.value = true
+
   filename.value = data.file_name
 
   isDrawing.value = true
 
 
 
+
   cutParamJsonStr.value = data.cut_params
 
   if(cutParamJsonStr.value) formattedJsonStr()
-
-  toolsParams.value.canvasVisible = true
 
   toolsParams.value.pdfPages = data?.img_urls?.length
 
@@ -386,9 +461,11 @@ const openFromImg = (data) => {
 
       
     }
-      
+    
+
       
   })
+
 
   // 加载并绘制OSS图片
   function drawOssImage(i,canvas, ctx, imgUrl) {
@@ -421,6 +498,11 @@ const openFromImg = (data) => {
 
       canvas.style.width = canvas.width * toolsParams.value.scaleCount + 'px'
       canvas.style.height = canvas.height * toolsParams.value.scaleCount + 'px'
+      if(i >= pdfcanvas.value.length-1){
+        toolsParams.value.canvasVisible = true
+        isPageLoading.value = false
+      }
+        
     };
 
     img.onerror = () => {
@@ -575,6 +657,8 @@ const drop = (img,stopAxisX,stopAxisY) => {
 
   ctx.drawImage(img, x/toolsParams.value.scaleCount, y/toolsParams.value.scaleCount, img.width/toolsParams.value.scaleCount, img.height/toolsParams.value.scaleCount);
 
+  addHistoy()
+
 }
 
 const clickuploadpdf = () => {
@@ -582,30 +666,30 @@ const clickuploadpdf = () => {
   
 }
 const handleFileChange = () => {
-  loadPDF()
+  isPageLoading.value = true
+  loadPDF().then(()=>{
+    toolsParams.value.canvasVisible = true
+  }).finally(()=>{
+    isPageLoading.value = false
+  })
 }
 
-const loadPDF = async (answercardInfo = null) => {
+const loadPDF = async (hasUrl=false) => {
   // NOTE: 这一步要特别注意，网上很多关于pdfjs的使用教程里漏了这一步，会出现workerSrc未定义的错误
   pdfjsLib.GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.entry')
   // pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/build/pdf.worker.mjs'
   
-  if(answercardInfo?.pdf_url){
-    const reader = new FileReader();
-    toolsParams.value.canvasVisible = true
-    reader.onload = async (e) => {
-      // const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
-      console.log(e)
-      const loadingTask = pdfjsLib.getDocument(answercardInfo?.pdf_url);
-      loadingTask.promise.then((pdf) => {
-        pdfDoc.value = pdf
-        toolsParams.value.pdfPages = pdfDoc.value.numPages
-        nextTick(() => {
-          // this.initPages()
-          renderPage(toolsParams.value.page_num)
-        })
+  if(hasUrl){
+    const loadingTask = pdfjsLib.getDocument(pdfUrl.value);
+    loadingTask.promise.then((pdf) => {
+      pdfDoc.value = pdf
+      toolsParams.value.pdfPages = pdfDoc.value.numPages
+      nextTick(() => {
+        renderPage(toolsParams.value.page_num)
       })
-    };
+    }).catch((error) => {
+      console.error("PDF加载失败:", error);
+    });
   }else{
     const file = uploadpdf.value.files[0];
     if (file) {
@@ -613,8 +697,8 @@ const loadPDF = async (answercardInfo = null) => {
       historys.value = []
       if(filename.value.split('.').slice(-1)[0].toLowerCase()=='pdf'){
         const reader = new FileReader();
-        toolsParams.value.canvasVisible = true
         reader.onload = async (e) => {
+          console.log(e)
           const loadingTask = pdfjsLib.getDocument({ data: e.target.result });
           loadingTask.promise.then((pdf) => {
             pdfDoc.value = pdf
@@ -628,7 +712,6 @@ const loadPDF = async (answercardInfo = null) => {
         reader.readAsArrayBuffer(file);
       }else{
         //传图
-        toolsParams.value.canvasVisible = true
         const reader = new FileReader();
         reader.onload = (e) => {
           toolsParams.value.pdfPages = 1
@@ -636,7 +719,6 @@ const loadPDF = async (answercardInfo = null) => {
           nextTick(() => {
             historys.value.push([])
             const canvas = document.getElementById('canvas1');
-            console.log("@@@@@@@@@",canvas)
             cur_canvas.value = canvas;
             // console.log(cur_canvas.value)
             const ctx = canvas.getContext("2d");
@@ -728,9 +810,9 @@ const renderPage = (num) => {
         renderPage(num + 1);
       }else{
         cur_canvas.value = document.getElementById("canvas1");
-        console.log("#######3", cur_canvas.value)
+        // console.log("#######3", cur_canvas.value)
         cur_ctx.value = cur_canvas.value.getContext("2d");
-        console.log('初始化比例：',toolsParams.value.scaleCount)
+        // console.log('初始化比例：',toolsParams.value.scaleCount)
         canvasX.value = cur_canvas.value.style.left
         canvasY.value = cur_canvas.value.style.top
       }
@@ -902,33 +984,36 @@ const scaleD = ()=> {
     return
   }
   toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) + 0.1
-  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount).toFixed(1)
+  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount.toFixed(1))
   // console.log(cur_canvas.value.style.width)
   // console.log('放大：'+ toolsParams.value.scaleCount)
   pdfcanvas.value.forEach(item => {
-    var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    var height_temp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
-    item.style.width = width_temp + 'px'
-    item.style.height = height_temp + 'px'
+    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
+    item.style.width = widthTemp + 'px'
+    item.style.height = heightTemp + 'px'
   })
+  showCutParam(true)
 }
 // pdf缩小
 const scaleX = () => {
+  console.log(toolsParams.value.scaleCount)
   if (toolsParams.value.scaleCount == 0.1) {
     return
   }
   toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) - 0.1
-  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount).toFixed(1)
+  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount.toFixed(1))
 
-  console.log(toolsParams.value)
+  console.log(toolsParams.value.scaleCount)
 
   pdfcanvas.value.forEach(item => {
-    var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    var height_temp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
     // console.log('缩小后的宽高：',widthTemp,heightTemp)
-    item.style.width = width_temp + 'px'
-    item.style.height = height_temp + 'px'
+    item.style.width = widthTemp + 'px'
+    item.style.height = heightTemp + 'px'
   })
+  showCutParam(true)
   // console.log('缩小'+toolsParams.value.scaleCount)
 }
 
@@ -938,19 +1023,19 @@ const scaleX = () => {
 //   ctx.drawImage(image,0,0);
 // }
 
-const showCutParam = ()=>{
+const showCutParam = (ifScale = false) =>{
   
   if(cutParamJson?.value == null){
     modal_show.value.linkxuecemodal_show = false
     // console.log(this.linkxuecemodal_show)
     return
   }
-  if (cutparamshow.value) {
+  if (cutparamshow.value && !ifScale) {
     cutparamshow.value = false;
   }else {
-    console.log("right here")
+    // console.log("right here")
     const result = findfirstanchor()
-    console.log(result)
+    // console.log(result)
     if (!result) {
       return
     }
@@ -980,11 +1065,10 @@ const showCutParam = ()=>{
 
 
 const findfirstanchor = () => {
-
   if(cutParamJson?.value?.pageSize?.width){
     // var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
     cutDivScale.value = width_temp.value * parseFloat(toolsParams.value.scaleCount)/cutParamJson.value.pageSize.width
-    console.log(cutDivScale.value)
+    // console.log(cutDivScale.value)
   }else{
     console.log("参数信息中没找到")
     return false
@@ -1028,35 +1112,85 @@ const findfirstanchor = () => {
 
 const linktoXuece = () => {
   // console.log(env.value,papertype.value,paperid.value)
-  getanswercard(env.value,papertype.value,paperid.value).then(data => {
-    cutParamJson.value = JSON.parse(data[0])
-    pdfUrl.value = data[1]
+  isPageLoading.value = true
+  const params = {
+    'env': env.value,
+    'card_type': papertype.value,
+    'paper_id': paperid.value
+  }
+  xueceApi.get_answercard_info(params).then(rst => {
+    if(!rst?.data?.name){
+      linkErrorMsg.value = "未找到相关答题卡。"
+      return
+    }
+
+    cutParamJsonStr.value = rst?.data?.params
+    cutParamJson.value = JSON.parse(cutParamJsonStr.value)
+    pdfUrl.value = rst?.data?.pdf_url
+
+    if(!toolsParams.value.canvasVisible){
+      filename.value = `${rst?.data?.name}.pdf`
+      linkErrorMsg.value = pdfUrl.value ? null:"关联答题卡尚未生成pdf。"
+      if(pdfUrl.value){
+        downloadPDF()
+      }
+    }
+      
+    
   }).catch(error => {
+    linkErrorMsg.value = "未找到相关答题卡。"
     toast(error,'error');
   })
 }
 
+const openFromLinks = (data) => {
+  isPageLoading.value = true
+  env.value = data.env
+  papertype.value = data.card_type
+  paperid.value = data.paper_id
+
+  linktoXuece()
+
+}
+
 const downloadPDF = () => {
   // console.log("******下载pdf:"+pdfUrl.value)
-  fetch(pdfUrl.value)
-    .then(response => response.blob())
-    .then(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', pdfUrl.value.split("/").pop());
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    })
-    .catch(error => {
-      console.error('文件下载失败', error)
-    });
+
+  const data = {
+    "name":filename.value,
+    "env":env.value,
+    "card_type":papertype.value,
+    "paper_id": paperid.value,
+    "update_time": getFormattedDateTime('m')
+  }
+
+  // 查找是否已存在相同的数据
+  const existingIndex = pdfFromLinkDataList.value.findIndex(item => 
+    item.env === data.env && 
+    item.card_type === data.card_type && 
+    item.paper_id === data.paper_id
+  );
+
+  if (existingIndex !== -1) {
+    pdfFromLinkDataList.value.splice(existingIndex, 1);
+  }
+
+  pdfFromLinkDataList.value.push(data)
+
+  localStorage.setItem("linkDataList",JSON.stringify(pdfFromLinkDataList.value))
+
+  loadPDF(true).then(()=>{
+    modal_show.value.linkxuecemodal_show = false
+    toolsParams.value.canvasVisible = true
+  }).finally(()=>{
+    isPageLoading.value = false
+  })
+  
 }
 
 
 const fillAnswerCard = () => {
-  console.log(anchorxy.value)
+  console.log("当前：",anchorxy.value)
   if(!(anchorxy.value.x || anchorxy.value.x)){
     const result = findfirstanchor()
     console.log(result)
@@ -1065,7 +1199,6 @@ const fillAnswerCard = () => {
     }
   }
   console.log(anchorxy.value)
-  let anchorxy = anchorxy.value
   let scale = cutDivScale.value/toolsParams.value.scaleCount
   let pageNum = 0
   let canvas = null
@@ -1084,7 +1217,6 @@ const fillAnswerCard = () => {
   } 
       
   if(cutParamJson.value){
-    const optionOffset = optionOffset.value
     cutParamJson.value.section.forEach(function(Eachsection) {
       if(pageNum != Eachsection.pageNumber && Eachsection.pageNumber <= pdfPages){
         if(canvas && ctx){
@@ -1111,8 +1243,8 @@ const fillAnswerCard = () => {
           
           var endx = subsection.cellWidth*scale
           var endy = subsection.cellHeight*scale
-          var startx = anchorxy.x + (sectionx+subsection.x)*scale
-          var starty = anchorxy.y + (sectiony+subsection.y)*scale
+          var startx = anchorxy.value.x + (sectionx+subsection.x)*scale
+          var starty = anchorxy.value.y + (sectiony+subsection.y)*scale
           //客观题横向
           if(subsection.sequenceOption == "HorizontalFirst"){
             var widthgap = subsection.positions*(subsection.cellWidth + subsection.cellGapWidth)-subsection.cellGapWidth+subsection.columnGapWidth
@@ -1120,7 +1252,7 @@ const fillAnswerCard = () => {
               
               var nstartx = startx + i%subsection.columns*widthgap*scale 
               let nstarty = starty + Math.floor(i/subsection.columns)*(subsection.cellHeight+subsection.rowGapHeight)*scale
-              optionOffset.forEach(offset=>{
+              optionOffset.value.forEach(offset=>{
                 ctx.beginPath()
                 ctx.fillRect(nstartx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
               })
@@ -1130,14 +1262,14 @@ const fillAnswerCard = () => {
           }else if(subsection.sequenceOption == "VerticalGroupVerticalFirst"){
             for(let i = 0; i < subsection.totalSequences; i++){
               let nstarty = starty + i*(subsection.cellHeight+subsection.rowGapHeight)*scale
-              optionOffset.forEach(offset=>{
+              optionOffset.value.forEach(offset=>{
                 ctx.beginPath()
                 ctx.fillRect(startx + offset*(subsection.cellWidth+subsection.cellGapWidth)*scale,nstarty,endx,endy)
               })
             }
           }else if(subsection.sequenceOption == "FreeStyle"){
             subsection.freeStyleCellGroups.forEach(freeStyleCellGroup=>{
-              optionOffset.forEach(offset=>{
+              optionOffset.value.forEach(offset=>{
                 var nstartx = startx + freeStyleCellGroup[offset].x*scale
                 let nstarty = starty + freeStyleCellGroup[offset].y*scale
                 // console.log("do",nstartx,nstarty)
@@ -1156,7 +1288,7 @@ const fillAnswerCard = () => {
         var cellwidth = Eachsection.rect.width/19
         // console.log("sectionNum:"+Eachsection.sectionNumber+"'s cellwidth is "+cellwidth)
         var subsection = Eachsection.subsections[0]
-        var startY = anchorxy.y + (Eachsection.rect.y - subsection.cellHeight)*scale
+        var startY = anchorxy.value.y + (Eachsection.rect.y - subsection.cellHeight)*scale
         var endY = startY + 3*subsection.cellHeight*scale
         var tensX = null
         var oneX = null
@@ -1166,12 +1298,12 @@ const fillAnswerCard = () => {
         score = [Math.floor(fullscore / 10),fullscore%10,0]
         console.log(score)
         if(subsection.maxIntegerScore <= subsection.maxSingleBoxScore){
-          oneX = anchorxy.x + ((17.5-10*score[0]-score[1])*cellwidth+sectionx)*scale
+          oneX = anchorxy.value.x + ((17.5-10*score[0]-score[1])*cellwidth+sectionx)*scale
         }else{
-          tensX = score[0] == 0 ? null : anchorxy.x + ((7.5-score[0])*cellwidth+sectionx)*scale
-          oneX = anchorxy.x + ((17.5-score[1])*cellwidth+sectionx)*scale
+          tensX = score[0] == 0 ? null : anchorxy.value.x + ((7.5-score[0])*cellwidth+sectionx)*scale
+          oneX = anchorxy.value.x + ((17.5-score[1])*cellwidth+sectionx)*scale
         }
-        var halfX = score[2] == 0 ? null : anchorxy.x + (Eachsection.rect.width-cellwidth/2+sectionx)*scale
+        var halfX = score[2] == 0 ? null : anchorxy.value.x + (Eachsection.rect.width-cellwidth/2+sectionx)*scale
         if(tensX){
           ctx.beginPath()
           ctx.moveTo(tensX,startY)
@@ -1344,6 +1476,7 @@ provide('pageMethods', {
   position: relative;
   width: 100%;
   overflow: auto;
+  border-radius: 12px;
   background-color: var(--canvas-bgc);
   border: var(--box-border);
 }
@@ -1386,36 +1519,53 @@ provide('pageMethods', {
 /*封面设计*/
 .cover {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 12px);
   display: flex;
+  flex-direction: column;
   border-radius: 12px;
+  border: var(--box-border);
   background-color: var(--canvas-bgc);
+  overflow-y: auto;
 }
 
-.cover-historys {
-  width: 100%;
+.cover-historys, .cover-links {
   padding: 40px;
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 30px;
+  gap: 50px 30px;
+}
+
+.table-content {
+/*  background: var(--box-bgc);*/
+  padding: 10px;
+  border-radius: 10px;
+/*  border: var(--box-border);*/
+  overflow: auto;
+  width: 100%;
 }
 
 .cover-historys-item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 
 .cover-historys-item > p{
-/*  margin: 14px 0;*/
+  height: 40px;
+  line-height: 40px;
   font-size: 15px;
   letter-spacing: 1px;
   font-weight: 500;
-  max-width: 100px;
+  width: 100%;
   white-space: nowrap; 
   overflow: hidden;         /* 隐藏超出部分 */
   text-overflow: ellipsis;  /* 超出时显示省略号 */
+  position: absolute;
+  bottom: -40px;
+  margin: 0;
+  text-align: center;
 }
 
 .cover-historys-item .item{
@@ -1428,6 +1578,7 @@ provide('pageMethods', {
   cursor: pointer;
   box-shadow: 0 0 1px 1px #8882;
   transition: 0.1s ease box-shadow;
+  filter: var(--img-filter);
 }
 
 .cover-historys-item .item:hover{
@@ -1437,6 +1588,8 @@ provide('pageMethods', {
 .cover-create {
   width: 150px;
   height: 200px;
+  flex-direction: column;
+  justify-content: space-evenly!important;
 }
 
 
@@ -1526,10 +1679,24 @@ provide('pageMethods', {
 }
 
 .menu-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.upload-icon {
+  color: #888;
+  transition: 0.1s color ease-in-out;
+  width: 100%;
+  height: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-icon:hover {
+  color: var(--main-color);
 }
 
 

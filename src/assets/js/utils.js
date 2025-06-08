@@ -72,56 +72,31 @@ async function detectApkArchitecture(apkFile) {
     return "未知"
 }
 
-// /**
-//  * 从 APK 中提取图标
-//  * @param {File} apkFile - 用户上传的 APK 文件
-//  * @returns {Promise<string>} - Base64 格式的图标
-//  */
-// export async function extractApkIcon(apkFile) {
-//   const zip = await JSZip.loadAsync(await apkFile.arrayBuffer());
-  
-//   // APK 图标可能路径（需根据实际 APK 调整）
-//   const possibleIconPaths = [
-//     'res/drawable-hdpi/ic_launcher.png',
-//     'res/mipmap-hdpi/ic_launcher.png',
-//     'res/drawable/icon.png'
-//   ];
+/**
+ * 获取格式化日期时间
+ * @param {string} format - 格式类型，可选值："d"、"h"、"m"、"s"
+ * @param {Date} [date] - 可选，传入 Date 对象进行转换；不传则使用当前时间
+ * @returns {string} 格式化后的日期时间字符串
+ */
+export function getFormattedDateTime(format = "d", date) {
+  const now = date ? new Date(date) : new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
 
-//   for (const path of possibleIconPaths) {
-//     const iconFile = zip.file(path);
-//     if (iconFile) {
-//       return `data:image/png;base64,${await iconFile.async('base64')}`;
-//     }
-//   }
-//   return null; // 未找到图标
-// }
-
-// /**
-//  * 从 IPA 中提取图标
-//  * @param {File} ipaFile - 用户上传的 IPA 文件
-//  * @returns {Promise<string>} - Base64 格式的图标
-//  */
-// export async function extractIpaIcon(ipaFile) {
-//   const zip = await JSZip.loadAsync(await ipaFile.arrayBuffer());
-  
-//   // 查找 IPA 中的 Info.plist 获取图标名
-//   const plistFile = zip.file(/Payload\/.*\.app\/Info\.plist/)[0];
-//   if (!plistFile) return null;
-  
-//   const plistData = await plistFile.async('text');
-//   const iconName = parsePlistForIconName(plistData); // 从 plist 解析图标名
-  
-//   // 查找图标文件
-//   const iconPath = `Payload/${Object.keys(zip.files)[0]}/${iconName}`;
-//   const iconFile = zip.file(iconPath);
-//   return iconFile 
-//     ? `data:image/png;base64,${await iconFile.async('base64')}` 
-//     : null;
-// }
-
-
-// // 解析Info.plist获取图标名
-// function parsePlistForIconName(plistText) {
-//   const match = plistText.match(/<key>CFBundleIconFile<\/key>\s*<string>([^<]+)/);
-//   return match ? match[1] + '.png' : 'AppIcon60x60@2x.png';
-// }
+  switch (format) {
+    case "d":
+      return `${year}-${month}-${day}`;
+    case "h":
+      return `${year}-${month}-${day} ${hours}`;
+    case "m":
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    case "s":
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    default:
+      return `${year}-${month}-${day} `; // 默认返回年月日
+  }
+}

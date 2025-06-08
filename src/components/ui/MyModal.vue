@@ -125,7 +125,7 @@ const closeModal = () => {
   bottom: 0;
   right: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 900;
 }
 
 .modal {

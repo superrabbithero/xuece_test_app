@@ -17,6 +17,7 @@
     "jsbarcode": "^3.11.6",
     "jszip": "^3.10.1",
     "keymaster": "^1.6.2",
+    "motion-v": "^1.2.0",
     "node-polyfill-webpack-plugin": "^4.1.0",
     "pdfjs-dist": "2.8",
     "pinia": "^3.0.2",
