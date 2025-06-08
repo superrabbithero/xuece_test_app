@@ -173,7 +173,7 @@
                     <div class="au-table-item">
                       {{data.name}}
                       <div class="au-table-item-tag">
-                        {{data.paper_type == "exam" ? "考试":"作业"}}
+                        {{data.card_type == "exam" ? "考试":"作业"}}
                       </div>
                     </div>
                   </td>
