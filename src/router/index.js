@@ -37,9 +37,18 @@ const routes = [
         component: () => import("@/components/LoginPage"),
         props:true,
         meta:{
-            title: '应用详情',
+            title: '登录',
             footerHidden: true,
             headerHidden: true
+        }
+    },
+    {
+        path: '/AiDemo',
+        name: 'AI工具箱',
+        component: () => import("@/components/AiDemo"),
+        props:true,
+        meta:{
+            title: 'AI工具箱'
         }
     }
 ]
