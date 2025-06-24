@@ -1,5 +1,5 @@
 <template>
-	<div class="au-layout container left">
+	<div class="au-grid container left">
 		<div class="rows">
 			<div class="cols s12">
 				<label>API-KEY:

@@ -55,10 +55,14 @@
           <p> ©2023 - 2025 By SuperRabbitHero </p>
           <a href="https://beian.miit.gov.cn" target="_blank">苏ICP备2025178576号-1</a>
         </div>
+        <div>
+          <icon-wrapper name="RiVuejsLine" @click="goto('/components')" />
+        </div>
       </div>
     </div>
 </div>
 <GlobalToast ref="toastRef"/>
+<au-message ref="messageRef"/>
 </template>
 
 <script setup>
@@ -79,11 +83,19 @@ const menu = ref(null)
 // 将toast方法provide给子组件
 const toastRef = ref(null)
 
+const messageRef = ref(null)
+
 const showToast = (msg, option = {}) => {
   toastRef.value?.show(msg,option)
 }
+
+const showMessage = (msg, option = {}) => {
+  messageRef.value?.show(msg,option)
+}
 // 将方法提供给所有子组件
 provide('toast', showToast)
+
+provide('message', showMessage)
 
 // 生命周期
 onMounted(() => {

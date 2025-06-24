@@ -50,6 +50,15 @@ const routes = [
         meta:{
             title: 'AI工具箱'
         }
+    },
+    {
+        path: '/components',
+        name: 'Au-Design',
+        component: () => import("@/components/ComponentsView"),
+        props:true,
+        meta:{
+            title: 'Au-Design'
+        }
     }
 ]
 

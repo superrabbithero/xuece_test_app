@@ -44,7 +44,7 @@
   </my-modal>
 
   <my-modal v-model="modal_show.fill_show" :dragable="true">
-    <div class="au-layout">
+    <div class="au-grid">
       <div class="rows gutter-l" >
         <div class="cols s12">
           <input type="radio" name="fillError" id="noError" value="0" v-model="fillError">
@@ -892,7 +892,7 @@ const MoMove = (event)=>{
       const el = cur_canvas.value
       // const pg = cutparampage.value
       // console.log(el.offsetLeft, el.offsetTop)
-      console.log(disx.value,disy.value)
+      // console.log(disx.value,disy.value)
       cutparampage.value.style.left = el.style.left = event.pageX - disx.value + 'px';
       cutparampage.value.style.top = el.style.top = event.pageY - disy.value + 'px';
     }
@@ -1037,7 +1037,7 @@ const showCutParam = (ifScale = false) =>{
     const result = findfirstanchor()
     // console.log(result)
     if (!result) {
-      return
+      // return
     }
     var json = cutParamJson.value
     // console.log(json.pageSize.width,json.pageSize.height)
@@ -1089,7 +1089,7 @@ const findfirstanchor = () => {
       const r = data[index];
       const g = data[index + 1];
       const b = data[index + 2];
-      if (r === 0 && g === 0 && b === 0) { // Black color
+      if (r <= 60 && g <= 60 && b <= 60) { // Black color dark
         minX = Math.min(minX, x);
         minY = Math.min(minY, y);
         blackRectangleFound = true;

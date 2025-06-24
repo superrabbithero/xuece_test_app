@@ -1,5 +1,5 @@
 <template>
-	<div class="au-layout" style="height: calc(100% - 180px);">
+	<div class="au-grid" style="height: calc(100% - 180px);">
     <div class="rows center" style="height: 100%;">
       <div class="cols">
         <div class="login-card rows">
