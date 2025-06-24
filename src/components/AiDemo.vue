@@ -65,15 +65,12 @@ const do_image_generation = async () => {
 	}
 
 	const data = {
-		"data":{
-			"model": "wanx-style-repaint-v1",
-			"input": {
-				"image_url": `https://oss.superrabbithero.xyz/test/image_generation/my_imgs/1749543176653.jpg`,
-				"style_index": -1,
-				"style_ref_url": `${style_ref_url.value}`
-			}
-		},
-		"api_key":`${api_key.value}`
+		"model": "wanx-style-repaint-v1",
+		"input": {
+			"image_url": `https://oss.superrabbithero.xyz/test/image_generation/my_imgs/1749543176653.jpg`,
+			"style_index": -1,
+			"style_ref_url": `${style_ref_url.value}`
+		}
 	}
 
 	const rst = await baiLian.image_generation(data)
