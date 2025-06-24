@@ -12,7 +12,7 @@
 			</div>
 		</div>
 		<div class="au-content">
-			<h1>Message 全局提示</h1>
+			<h1 @click="do_message()">Message 全局提示</h1>
 			<div class="component-demo">
 				<div class="component-demo_view">
 					<div class="component-demo_view_title">
@@ -20,15 +20,21 @@
 					</div>
 					<div class="component-demo_view_content">
 						<au-message :message="message_config.msg" 
-						:type="message_config.type" 
+						:type="message_type" 
 						:demo="true"  
-						@click="do_message"/>
+						@click="do_message()"/>
 					</div>
 				</div>
 				<div class="component-demo_config">
 					<div class="component-demo_config_title">
 						<icon-wrapper name="RiLightbulbFill" size="16" color="#ffc848"/>
 						配置
+					</div>
+					<div class="component-demo_config_content">
+						<label><span>内容：</span><input type="text" v-model="message_config.msg"/></label>
+						<label><span>类型：</span>
+							<au-select :dataList="message_config.typeList" v-model="message_config.typeIndex"/>
+						</label>
 					</div>
 				</div>
 				<div v-show="false" class="component-demo_code">
@@ -40,17 +46,23 @@
 </template>
 
 <script setup>
-import {ref, inject} from 'vue'
+import {ref, inject, computed} from 'vue'
 
 const message = inject('message')
 
 const message_config = ref({
+	typeList:['info','warning','success','error'],
 	msg:"这是一条message",
-	type:"info",
+	typeIndex:0
+})
+
+const message_type = computed(() => {
+	return message_config.value.typeList[message_config.value.typeIndex]
 })
 
 const do_message = () => {
-	message(message_config.value.msg,{type:message_config.value.type})
+	console.log("father")
+	message(message_config.value.msg,{type:message_type.value})
 }
 
 </script>
@@ -75,6 +87,7 @@ const do_message = () => {
 .component-demo_view,.component-demo_config{
 	display: flex;
     flex-direction: column;
+	/* overflow: hidden; */
 }
 
 .component-demo_view_content{
@@ -82,6 +95,29 @@ const do_message = () => {
 	height: 100%;
 	align-items: center;
     justify-content: center;
+}
+
+.component-demo_config_content{
+	display: flex;
+	flex-direction: column;
+	padding:12px 14px
+}
+
+.component-demo_config_content > label{
+	display: flex;
+	align-items: center;
+	
+}
+
+.component-demo_config_content > label > *{
+	width: 100%;
+	flex-shrink: 1;
+	flex-grow: 1;
+}
+
+.component-demo_config_content > label > span{
+	width: 3rem;
+	flex-shrink: 0;
 }
 
 .component-demo_config{
