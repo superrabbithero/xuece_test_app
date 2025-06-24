@@ -7,7 +7,7 @@
         </div>
       </div>
       <div class="modal-slot">
-        <div v-if="confirmTitle" class="au-layout">
+        <div v-if="confirmTitle" class="au-grid">
           <div class="rows center">
             <div class="cols s11 confirm-title">
               {{confirmTitle}}

@@ -1,5 +1,5 @@
 <template>
-  <div class="au-layout">
+  <div class="au-grid">
     <div class="rows space-between">
       <div class="cols filter-bar">
         <au-select class="filter-select" label="类型" :dataList="appTypeList" @change="changeAppType"></au-select>
@@ -27,9 +27,10 @@
               <th>操作</th>
             </tr>
           </thead>
-          <tbody>
-            <div v-show="packageStore.isLoading">更新中请稍候</div>                 
+          <tbody>   
+            <tr v-show="packageStore.isLoading">更新中请稍候</tr>           
             <tr class="table-tr" v-for="(pkg, index) in packageStore.packages" :key="pkg.id">
+
               <td style="display: flex;gap:10px;">
                 <img :src="pkg.icon?.url || getPkgUrl(pkg.appname)" alt="应用图标" class="table-icon" />
                 <div class="td-content">
@@ -68,13 +69,13 @@
   </div> 
   <my-modal v-model="modal_show.fileUpload_show" :modeless="false">
     <!-- 自动填涂 -->
-    <div class="au-layout">
+    <div class="au-grid">
       <div class="rows" style="gap: 10px">
         <div class="cols s12">
           <au-file-input accept=".ipa, .apk, .exe" v-model="file"></au-file-input>
         </div>
         <div class="cols s12">
-          <div v-if="isParsing || packageInfo" class="file-info au-layout">
+          <div v-if="isParsing || packageInfo" class="file-info au-grid">
             <div v-if="isParsing">
               正在解析...
             </div>
@@ -140,7 +141,7 @@
     </div>
   </my-modal>
   <my-modal v-model="modal_show.editor_show" :modeless="false">
-    <div class="au-layout">
+    <div class="au-grid">
       <div class="rows" style="gap: 10px">
         <div class="cols s12">
           <label>文件名:</label>
@@ -162,7 +163,7 @@
     </div>
   </my-modal>
   <my-modal width="280" v-model="modal_show.qrCode_show">
-    <div class="au-layout">
+    <div class="au-grid">
       <div class="rows center">
         <div class="cols s12 center">
           <div class="qr_modal_info">
@@ -299,7 +300,7 @@ const isLogin = ref(false)
 
 onMounted(() => {
   // console.log(process.env.VUE_APP_BASE_URL)
-  packageStore.fetchPackages()
+  packageStore.fetchPackages().then().catch(err => {console.log(err)})
   if(localStorage.getItem('token')){
     isLogin.value = true
   }
@@ -323,6 +324,7 @@ const parsePackage = () => {
       isParsing.value = true
       parseAPK(file.value).then(rst => {
         isParsing.value = false
+        console.log(rst)
         packageInfo.value = {
           fileName : rst.name,
           packageName : rst.packageName,

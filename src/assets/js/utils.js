@@ -4,6 +4,7 @@ export const parseAPK = async (file) => {
   try {
     const parser = new AppInfoParser(file);
     const result = await parser.parse();
+
     let ar = 'x64'
     // let icon = null
     console.log('package信息:', result);
@@ -44,7 +45,7 @@ async function detectApkArchitecture(apkFile) {
   
   // 2. 用 JSZip 解压
   const zip = await JSZip.loadAsync(arrayBuffer);
-  
+
   // 3. 提取 lib/ 下的所有目录名
   const libDirs = new Set();
   zip.forEach((relativePath) => {

@@ -19,7 +19,6 @@
     "keymaster": "^1.6.2",
     "motion-v": "^1.2.0",
     "node-polyfill-webpack-plugin": "^4.1.0",
-    "openai": "^5.2.0",
     "pdfjs-dist": "2.8",
     "pinia": "^3.0.2",
     "qrcode.vue": "^3.6.0",

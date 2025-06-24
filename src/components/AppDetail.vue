@@ -1,6 +1,6 @@
 <template>
   <!-- 确保 QRCodeVue 被正确使用 -->
-  <div class="au-layout container" style="padding:1rem">
+  <div class="au-grid container" style="padding:1rem">
     <div v-if="packageInfo" class="rows center">
       <div class="cols center s12">
         <img :src="packageInfo.icon.url" alt="应用图标" class="app-icon" />
