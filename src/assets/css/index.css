@@ -3,6 +3,7 @@
   --select-bgc:#fff;
   --layout-bgc:#d3dce6;
   --main-color : #ffc848;  
+  --main-color-darker: #ffb60a;
   /* 白天样式 */
   --content-bgc:#f0f0f2;
   /*  内容的背景颜色*/
@@ -10,6 +11,7 @@
   --box-hightlight:#f3f3f3;
   --button-highlight:#e6e6e6;
   --card-hightlight:rgb(238, 238, 238);
+  --filter-drop-shadow:2px 2px 3px rgba(0, 0, 0, 0.2);
   --white-highlight:#0000000e;
   /*  盒子的白*/
   --box-shadow:0.2vw 0.2vw 1vw rgba(0,0,0,0.2);
@@ -170,6 +172,8 @@ img {
   --canvas-bgc:#1b1c20;
   --scrollbar-thumb-bgc:#aaa;
   --scrollbar-thumbhovered-bgc:#eee;
+
+  --filter-drop-shadow:0 0 1px #aaa;
 
   --btn-border:1px solid #f7f7fa;
 
@@ -969,6 +973,16 @@ textarea:active, textarea:focus{
     padding: 8px 14px 10px 14px;
     border-radius: 5px;
     transition: 0.3s;
+}
+
+.au-aside-group_item.active{
+    background-color: var(--main-color);
+    color: #555;
+    font-weight: 500;
+}
+
+.au-aside-group_item.active:hover{
+    background-color: var(--main-color-darker);
 }
 
 .au-aside-group_item:hover{

@@ -4,70 +4,41 @@
 			<div class="au-aside-group">
 				<span class="au-aside-group_title">消息提醒</span>
 				<div class="au-aside-group_children">
-					<span class="au-aside-group_item">Alert 警告提醒</span>
-					<span class="au-aside-group_item">Dialog 对话框</span>
-					<span class="au-aside-group_item">Drawer 抽屉</span>
-					<span class="au-aside-group_item">Message 全局提示</span>
+					<span :class="{'au-aside-group_item':true,'active':currentComponent == item.component}" v-for="item in menuItems" :key="item"
+					@click="currentComponent = item.component">
+					{{item.label}}</span>
 				</div>
 			</div>
 		</div>
 		<div class="au-content">
-			<h1 @click="do_message()">Message 全局提示</h1>
-			<div class="component-demo">
-				<div class="component-demo_view">
-					<div class="component-demo_view_title">
-						message
-					</div>
-					<div class="component-demo_view_content">
-						<au-message :message="message_config.msg" 
-						:type="message_type" 
-						:demo="true"  
-						@click="do_message()"/>
-					</div>
-				</div>
-				<div class="component-demo_config">
-					<div class="component-demo_config_title">
-						<icon-wrapper name="RiLightbulbFill" size="16" color="#ffc848"/>
-						配置
-					</div>
-					<div class="component-demo_config_content">
-						<label><span>内容：</span><input type="text" v-model="message_config.msg"/></label>
-						<label><span>类型：</span>
-							<au-select :dataList="message_config.typeList" v-model="message_config.typeIndex"/>
-						</label>
-					</div>
-				</div>
-				<div v-show="false" class="component-demo_code">
-					这里需要代码高亮样式，晚点再说
-				</div>
-			</div>
+			<component :is="components[currentComponent]"></component>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import {ref, inject, computed} from 'vue'
+import {ref,shallowRef} from "vue"
+import MessageDemo from "@/components/uiDemo/AuMessageDemo"
+import PopupDemo from "@/components/uiDemo/PopupDemo"
 
-const message = inject('message')
-
-const message_config = ref({
-	typeList:['info','warning','success','error'],
-	msg:"这是一条message",
-	typeIndex:0
+const components = shallowRef({
+  MessageDemo,
+  PopupDemo
 })
 
-const message_type = computed(() => {
-	return message_config.value.typeList[message_config.value.typeIndex]
-})
+const currentComponent = ref('PopupDemo')
 
-const do_message = () => {
-	console.log("father")
-	message(message_config.value.msg,{type:message_type.value})
-}
+const menuItems = [
+  { label: 'Alert 警告提醒', component: 'AlertDemo' },
+  { label: 'Dialog 对话框', component: 'DialogDemo' },
+  { label: 'Drawer 抽屉', component: 'DrawerDemo' },
+  { label: 'Message 全局提示', component: 'MessageDemo' },
+  { label: 'Popup 弹出层', component: 'PopupDemo' }
+]
 
 </script>
 
-<style scoped>
+<style>
 .component-demo {
 	width: 90%;
 	border-radius: 5px;
@@ -104,6 +75,7 @@ const do_message = () => {
 }
 
 .component-demo_config_content > label{
+	height: 40px;
 	display: flex;
 	align-items: center;
 	
@@ -111,8 +83,8 @@ const do_message = () => {
 
 .component-demo_config_content > label > *{
 	width: 100%;
-	flex-shrink: 1;
-	flex-grow: 1;
+	/*flex-shrink: 1;
+	flex-grow: 1;*/
 }
 
 .component-demo_config_content > label > span{
