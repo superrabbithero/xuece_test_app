@@ -2,8 +2,11 @@
     <div class="popup-container" ref="popup" @pointerenter="handleHoverStart" @pointerleave="handleHoverEnd">
         <transition name="popup-fade">
             <div :class="['popup-box',placement]" v-if="visible">
-                <div :class="['popup',{'show_arrow':showArrow}]">{{ message }}</div>
-                <div class="popup-arrow" v-if="showArrow"></div>
+                <div :class="['popup',{'show_arrow':showArrow}]">
+                    <span>{{ message }}</span>
+                    <div class="popup-arrow" v-if="showArrow"></div>
+                </div>
+                
             </div>
         </transition>
         <div 
@@ -91,14 +94,15 @@ const closePop = (e) => {
 
 .popup-arrow {
     position: absolute;
-    background: var(--box-bgc);
+    background: transparent;
     width: 8px;
     height: 8px;
-
 }
 
 .popup {
+
     width: fit-content;
+    height: fit-content;
     white-space: nowrap;
     font-size: 14px;
     background: var(--box-bgc);
@@ -147,6 +151,7 @@ const closePop = (e) => {
 .popup-box.top-left .popup,
 .popup-box.top-right .popup{
     margin-bottom: 6px;
+    height: fit-content;
 }
 
 .popup-box.top .popup.show_arrow,
@@ -157,9 +162,9 @@ const closePop = (e) => {
 .popup-box.top .popup-arrow,
 .popup-box.top-left .popup-arrow,
 .popup-box.top-right .popup-arrow {
-    transform: rotate(45deg) translate(-50%, -8px);
-    left: calc(50% - 5px);
-    bottom:0;
+    transform: translateX(-50%);
+    left: 50%;
+    bottom: 8px;
 
 }
 
@@ -181,6 +186,7 @@ const closePop = (e) => {
 .popup-box.bottom,
 .popup-box.bottom-left,
 .popup-box.bottom-right {
+    height: fit-content;
     bottom: 0;
     transform: translateY(100%);
 }
@@ -200,53 +206,110 @@ const closePop = (e) => {
 .bottom .popup-arrow,
 .bottom-left .popup-arrow,
 .bottom-right .popup-arrow {
-    transform: rotate(45deg) translate(50%, 8px);
-    left: calc(50% - 5px);
-    top:0;
+    transform: translateX(-50%);
+    left: 50%;
+    top:8px;
 
 }
 
 /*left*/
 .popup-box.left {
-    justify-content: end;
+    align-items: center;
 }
 
 /*left-top*/
 .popup-box.left-top {
-    justify-content: end;
+    align-items: start;
 }
 
 /*left-bottom*/
 .popup-box.left-bottom {
-    justify-content: end;
+    align-items: end;
 }
 
 .popup-box.left,
 .popup-box.left-top,
 .popup-box.left-bottom {
+    min-height:100%;
+    justify-content: end;
     left: 0;
     transform: translateX(-100%);
 }
 
-.popup-box.left .popup
-.popup-box.left-top .popup
+.popup-box.left .popup,
+.popup-box.left-top .popup,
 .popup-box.left-bottom .popup{
-    margin-top: 6px;
+    position: absolute;
+    margin-right: 6px;
 }
 
 .left .popup.show_arrow,
 .left-top .popup.show_arrow,
 .left-bottom .popup.show_arrow{
-    margin-top: 12px!important;
+    margin-right: 12px!important;
 }
 
 .left .popup-arrow,
 .left-top .popup-arrow,
 .left-bottom .popup-arrow {
-    transform: rotate(45deg) translate(50%, 8px);
-    left: calc(50% - 5px);
-    top:0;
+    transform: translateY(-50%);
+    top: 50%;
+    right:-4px;
+}
 
+/*right*/
+.popup-box.right {
+    align-items: center;
+}
+
+/*right-top*/
+.popup-box.right-top {
+    align-items: start;
+}
+
+/*right-bottom*/
+.popup-box.right-bottom {
+    align-items: end;
+}
+
+.popup-box.right,
+.popup-box.right-top,
+.popup-box.right-bottom {
+    min-height:100%;
+    justify-content: start;
+    right: 0;
+    transform: translateX(100%);
+}
+
+.popup-box.right .popup,
+.popup-box.right-top .popup,
+.popup-box.right-bottom .popup{
+    position: absolute;
+    margin-left: 6px;
+}
+
+.right .popup.show_arrow,
+.right-top .popup.show_arrow,
+.right-bottom .popup.show_arrow{
+    margin-left: 12px!important;
+}
+
+.right .popup-arrow,
+.right-top .popup-arrow,
+.right-bottom .popup-arrow {
+    transform: translateY(-50%);
+    top: 50%;
+    left:-4px;
+}
+
+.popup-arrow::before {
+    position: absolute;
+    content: "";
+    width: 100%;
+    height: 100%;
+    background: var(--box-bgc);
+    z-index: 500;
+    rotate: 45deg;
 }
 
 </style>

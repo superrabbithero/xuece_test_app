@@ -12,7 +12,7 @@
 				:showArrow="popup_config.showArrow"
 				:placement="popup_config.placementList[popup_config.placementIndex]"
 				>
-					<au-button class="small" value="popup"/>
+					<au-button class="large" value="popup"/>
 				</au-popup>
 			</div>
 		</div>
@@ -35,7 +35,7 @@
 					<span>位置:</span>
 					<au-select :dataList="popup_config.placementList" v-model="popup_config.placementIndex"/>
 				</label>
-				{{popup_config}}
+				<!-- {{popup_config}} -->
 			</div>
 		</div>
 		<div v-show="false" class="component-demo_code">
@@ -65,7 +65,10 @@ const popup_config = ref({
 		"bottom-right",
 		"left",
 		"left-top",
-		"left-bottom"
+		"left-bottom",
+		"right",
+		"right-top",
+		"right-bottom"
 		],
 	placementIndex:0
 })
