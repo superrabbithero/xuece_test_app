@@ -111,7 +111,6 @@ const refreshlist = () => {
         height: 30px;
         border-radius: 5px;
         background-color: var(--box-hightlight);
-        box-shadow: var(--box-shadow-close);
         line-height: 30px;
         margin-right: 5px;
         border: 2px solid var(--box-hightlight);
