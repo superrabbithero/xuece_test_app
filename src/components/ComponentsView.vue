@@ -1,10 +1,10 @@
 <template>
 	<div class="au-layout">
 		<div class="au-aside">
-			<div class="au-aside-group">
-				<span class="au-aside-group_title">消息提醒</span>
+			<div class="au-aside-group" v-for="group in menuItems" :key="group">
+				<span class="au-aside-group_title">{{group.name}}</span>
 				<div class="au-aside-group_children">
-					<span :class="{'au-aside-group_item':true,'active':currentComponent == item.component}" v-for="item in menuItems" :key="item"
+					<span :class="{'au-aside-group_item':true,'active':currentComponent == item.component}" v-for="item in group.list" :key="item"
 					@click="currentComponent = item.component">
 					{{item.label}}</span>
 				</div>
@@ -20,20 +20,33 @@
 import {ref,shallowRef} from "vue"
 import MessageDemo from "@/components/uiDemo/AuMessageDemo"
 import PopupDemo from "@/components/uiDemo/PopupDemo"
+import PaginationDemo from "@/components/uiDemo/PaginationDemo"
 
 const components = shallowRef({
   MessageDemo,
-  PopupDemo
+  PopupDemo,
+  PaginationDemo
 })
 
 const currentComponent = ref('PopupDemo')
 
 const menuItems = [
-  { label: 'Alert 警告提醒', component: 'AlertDemo' },
-  { label: 'Dialog 对话框', component: 'DialogDemo' },
-  { label: 'Drawer 抽屉', component: 'DrawerDemo' },
-  { label: 'Message 全局提示', component: 'MessageDemo' },
-  { label: 'Popup 弹出层', component: 'PopupDemo' }
+	{
+		name:"导航",
+		list:[
+			{ label: 'Pagination 分页', component: 'PaginationDemo' }
+		]
+	},
+	{
+		name:"消息提醒",
+		list:[
+			{ label: 'Alert 警告提醒', component: 'AlertDemo' },
+			{ label: 'Dialog 对话框', component: 'DialogDemo' },
+			{ label: 'Drawer 抽屉', component: 'DrawerDemo' },
+			{ label: 'Message 全局提示', component: 'MessageDemo' },
+			{ label: 'Popup 弹出层', component: 'PopupDemo' }
+		]
+	}
 ]
 
 </script>

@@ -63,7 +63,7 @@
     </div>
     <div class="rows center">
       <div class="cols">
-        <au-pagination v-if="packageStore.pagination.pages && packageStore.pagination.pages != 0" :totalPages="packageStore.pagination.pages"></au-pagination>
+        <au-pagination v-if="packageStore.pagination.pages && packageStore.pagination.pages != 0" :totalPages="packageStore.pagination.pages" v-model="packageStore.curFilter.page"></au-pagination>
       </div>
     </div>
   </div> 
@@ -196,6 +196,8 @@ import { useOssStore } from '@/stores/ossStore';
 import { parseAPK } from '@/assets/js/utils'
 import router from '@/router'
 
+// const curPage = ref(1)
+
 const toast = inject('toast')
 
 const packageStore = usePackageStore()
@@ -220,7 +222,6 @@ const isDebugList = ref(['全部','调试包','正式包'])
 // var packageStore.curFilter = {appname: '0',system:null,page:1,per_page:10}
 // const packages = ref([])
 const modal_show = ref({fileUpload_show:false,editor_show:false,qrCode_show:false})
-
 
 const file = ref(null)
 
@@ -313,6 +314,14 @@ watch(
   file,
   ()=>{
     parsePackage()
+    // console.log('file变化:', oldFile, '→', newFile);
+  }
+)
+
+watch(
+  packageStore.curFilter,
+  ()=>{
+    packageStore.fetchPackages().then().catch(err => {console.log(err)})
     // console.log('file变化:', oldFile, '→', newFile);
   }
 )
