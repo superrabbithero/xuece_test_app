@@ -74,8 +74,9 @@ const selectBox = ref(null) // 添加模板引用
   .select-box {
     width: 100%;
     position: relative;
-    margin-top: 6px;
-    
+
+    max-width: 100%;
+    min-width: 0;
   }
   .label {
     position: absolute;
@@ -97,17 +98,21 @@ const selectBox = ref(null) // 添加模板引用
     padding: 6px 8px;
     border-radius: 8px;
     background-color: var(--box-bgc);
-    /* height: 28px; */
-    /* line-height: 28px; */
     display: flex;
     align-items: center;
     justify-content: space-between;
     font-weight: 500;
+/*    width: 100%;*/
+    min-width: 0;
   }
 
   .list-value{
     height: 20px;
     line-height: 20px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+    overflow: hidden;
   }
   .input-area.active{
     outline: 1px solid var(--main-color);
@@ -115,10 +120,7 @@ const selectBox = ref(null) // 添加模板引用
   }
 
   .icon {
-    /*position: absolute;
-    right: 6px;
-    top: 50%;*/
-/*    transform: translateY(-50%) ;*/
+    flex-shrink: 0;
     color:var(--fontNormal);
     transition: transform 0.3s ease;
   }

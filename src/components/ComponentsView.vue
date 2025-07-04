@@ -21,20 +21,39 @@ import {ref,shallowRef} from "vue"
 import MessageDemo from "@/components/uiDemo/AuMessageDemo"
 import PopupDemo from "@/components/uiDemo/PopupDemo"
 import PaginationDemo from "@/components/uiDemo/PaginationDemo"
+import ButtonDemo from "@/components/uiDemo/ButtonDemo"
+import IconDemo from "@/components/uiDemo/IconDemo"
+import PainterDemo from "@/components/uiDemo/PainterDemo"
 
 const components = shallowRef({
   MessageDemo,
   PopupDemo,
-  PaginationDemo
+  PaginationDemo,
+  ButtonDemo,
+  IconDemo,
+  PainterDemo
 })
 
-const currentComponent = ref('PopupDemo')
+const currentComponent = ref('PainterDemo')
 
 const menuItems = [
+	{
+		name:"基础",
+		list:[
+			{ label: 'Button 按钮', component: 'ButtonDemo' },
+			{ label: 'Icon 图标', component: 'IconDemo' }
+		]
+	},
 	{
 		name:"导航",
 		list:[
 			{ label: 'Pagination 分页', component: 'PaginationDemo' }
+		]
+	},
+	{
+		name:"组件",
+		list:[
+			{ label: 'Painter 涂鸦', component: 'PainterDemo' }
 		]
 	},
 	{
@@ -46,7 +65,8 @@ const menuItems = [
 			{ label: 'Message 全局提示', component: 'MessageDemo' },
 			{ label: 'Popup 弹出层', component: 'PopupDemo' }
 		]
-	}
+	},
+
 ]
 
 </script>
@@ -96,8 +116,7 @@ const menuItems = [
 
 .component-demo_config_content > label > *{
 	width: 100%;
-	/*flex-shrink: 1;
-	flex-grow: 1;*/
+	flex-grow: 1;
 }
 
 .component-demo_config_content > label > span{

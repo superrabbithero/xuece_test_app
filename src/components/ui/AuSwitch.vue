@@ -86,7 +86,7 @@
   }
 
   .switch.normal {
-    width: 50px;
+    max-width: 50px;
     height: 24px;
   }
 
@@ -113,7 +113,7 @@
   }
 
   .switch.big {
-    width: 60px;
+    max-width: 60px;
     height: 28px;
   }
 
@@ -140,7 +140,7 @@
   }
 
   .switch.small {
-    width: 40px;
+    max-width: 40px;
     height: 20px;
   }
 
