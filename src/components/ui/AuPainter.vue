@@ -1,17 +1,29 @@
 <template>
-    <canvas v-show="show" ref="canvas"
-               @pointerdown="handlePointerDown"
-               @pointermove="handlePointerMove"
-               @pointerup="handlePointerUp">
-                
+  <div style="position: fixed;top:90px">
+    {{state.view}}{{state.scaleCount}}
+    <input type="button" class="fill" value="清空" @click="clearAll"/>
+    <input type="button" class="fill" value="重绘" @click="reDraw"/>
+    <input type="button" class="fill" value="放大" @click="zoomIn"/>
+    <input type="button" class="fill" value="缩小" @click="zoomOut"/>
+  </div>
+  <div class="canvas-area" ref="canvasArea">
+    <canvas v-show="show" ref="canvas" class="canvas-cur"
+               @pointerdown="handlePointerDown">
     </canvas>
+    <canvas v-show="show" ref="canvasHistory" class="canvas-history">
+    </canvas>
+  </div>
+
     <div v-show="show" :class="{'edit-tools-box':true, 'active':editToolsActive || modal_show.setting_show}" ref="dragToolsBar" @pointerover="handleToolsBarFocus" @pointerleave="handleToolsBarOut">
 
-      <div :class="{'edit-tools-item':true,'active':!erasing}" @click="getcanvastool('pencil')">
+      <div :class="{'edit-tools-item':true,'active':state.tool == 'pencil'}" @click="getcanvastool('pencil')">
         <au-icon name="RiPencilLine"  size="22"></au-icon>
       </div>
-      <div :class="{'edit-tools-item':true,'active':erasing}" @click="getcanvastool('eraser')">
+      <div :class="{'edit-tools-item':true,'active':state.tool == 'eraser'}" @click="getcanvastool('eraser')">
         <au-icon name="RiEraserLine" size="22"></au-icon>
+      </div>
+      <div :class="{'edit-tools-item':true,'active':state.tool == 'move'}" @click="getcanvastool('move')">
+        <au-icon name="RiCursorLine" size="22"></au-icon>
       </div>
       <div class="divider-line"></div>
       <div class="edit-tools-item" @click="modal_show.setting_show = !modal_show.setting_show">
@@ -72,6 +84,7 @@ const state = reactive({
   drawData: null,
   isScroll: 0,
   context: null,
+  historyContext:null,
   currentPointerType: null,
   multiLastPt: {},
   offsetTop: 0,
@@ -98,11 +111,28 @@ const state = reactive({
   disy: 0,
   editToolsActive: false,
   pressTimer: null,
-  pressTimerNum: 0
+  pressTimerNum: 0,
+
+  scaleCount:1,
+
+  view:{
+    x:0,
+    y:0,
+    width:0,
+    height:0
+  },
+
+  allPoints:[],
+  tool:"pencil",
+  movingStart:null,
+  moveingOffset:{x:0,y:0}
+
 })
 
 const canvas = ref(null)
+const canvasHistory = ref(null)
 const dragToolsBar = ref(null)
+const canvasArea = ref(null)
 
 // const { modal_show } = toRefs(state)
 // 解构常用状态
@@ -110,7 +140,7 @@ const {
   penColor,
   penWidth,
   eraserWidth,
-  erasing,
+  // erasing,
   mode,
   editToolsActive,
   colorList,
@@ -141,6 +171,8 @@ onBeforeUnmount(() => {
   document.body.classList.remove('none-select')
   document.removeEventListener('pointermove', dragmove)
   document.removeEventListener('pointerup', dragup)
+  document.removeEventListener('pointermove', handlePointerMove)
+  document.removeEventListener('pointerup', handlePointerUp)
 })
 
 // 方法
@@ -149,17 +181,17 @@ const dragdown = (e) => {
     state.dragToolsBar = dragToolsBar.value
     document.addEventListener('pointermove', dragmove)
     document.addEventListener('pointerup', dragup)
-    state.disx = e.pageX - state.dragToolsBar.offsetLeft
+    state.disx = e.clientX - state.dragToolsBar.offsetLeft
     state.disy = e.pageY - state.dragToolsBar.offsetTop
     state.dragToolsBar.style.right = 'unset'
-    state.dragToolsBar.style.left = e.pageX - state.disx + 'px'
+    state.dragToolsBar.style.left = e.clientX - state.disx + 'px'
     state.dragToolsBar.style.top = e.pageY - state.disy + 'px'
   }
 }
 
 const dragmove = (e) => {
   if (state.dragToolsBar) {
-    state.dragToolsBar.style.left = e.pageX - state.disx + 'px'
+    state.dragToolsBar.style.left = e.clientX - state.disx + 'px'
     state.dragToolsBar.style.top = e.pageY - state.disy + 'px'
   }
 }
@@ -213,18 +245,30 @@ const init = () => {
   }
   
 
-  canvas.value.width = canvas.value.parentElement.clientWidth * 5
-  canvas.value.height = canvas.value.parentElement.clientHeight * 5
+  canvas.value.width = canvas.value.parentElement.clientWidth
+  canvas.value.height = canvas.value.parentElement.clientHeight
   canvas.value.style.width = canvas.value.parentElement.clientWidth + "px"
   canvas.value.style.height = canvas.value.parentElement.clientHeight + "px"
-  console.log(canvas.value.width,canvas.value.height)
-  // state.canvasWidth = canvas.value.width
-  // state.canvasHeight = canvas.value.height
-  // state.offsetLeft = canvas.value.offsetLeft
-  // state.offsetTop = canvas.value.offsetTop
+
+  canvasHistory.value.width = canvasHistory.value.parentElement.clientWidth
+  canvasHistory.value.height = canvasHistory.value.parentElement.clientHeight
+  canvasHistory.value.style.width = canvasHistory.value.parentElement.clientWidth + "px"
+  canvasHistory.value.style.height = canvasHistory.value.parentElement.clientHeight + "px"
+
+  //初始化实时层
   state.context = canvas.value.getContext('2d')
-  state.context.scale(5,5)
+  // state.context.scale(2,2)
   state.context.strokeStyle = state.penColor
+  state.context.lineCap = "round"
+
+  //初始化历史层
+  state.historyContext = canvasHistory.value.getContext('2d')
+  // state.historyContext.scale(2,2)
+  state.historyContext.strokeStyle = state.penColor
+  state.historyContext.lineCap = "round"
+
+  //初始化view坐标
+  state.view = {x:0,y:0,width:canvas.value.width,height:canvas.value.height}
 }
 
 // const switchmode = () => {
@@ -236,130 +280,259 @@ const handlePointerDown = (event) => {
   
   state.currentPointerType = event.pointerType
 
-  state.offsetLeft = canvas.value.offsetLeft
-  state.offsetTop = canvas.value.offsetTop
+  updateOffset()
 
   if (state.mode == false && state.currentPointerType == 'pen') {
     state.mode = true
     console.log(`检测到正在使用触控笔，开启"仅触控笔"模式，可在画板设置中关闭`)
   }
   
-
   const id = event.pointerId
-  state.multiLastPt[id] = { x: event.pageX, y: event.pageY }
+  state.multiLastPt[id] = { x: event.clientX, y: event.clientY }
   
-  if (state.mode == true && state.currentPointerType === 'pen') {
-    state.scrolltop = canvas.value.parentElement.scrollTop
-    state.isDrawing = true
-    state.points = []
-    state.points.push({ x: event.pageX, y: event.pageY })
-    state.beginPoint = state.points[0]
-  } else if (state.mode == true && state.currentPointerType === 'touch') {
-    state.isScroll = id
-    state.startY = event.pageY
-    state.scrolltop = canvas.value.parentElement.scrollTop
-  } else if (state.mode === false) {
-    state.scrolltop = canvas.value.parentElement.scrollTop
-    if (Object.keys(state.multiLastPt).length == 2) {
-      state.isDrawing = false
-      state.isScroll = id
-      state.startY = event.pageY
-    } else if (Object.keys(state.multiLastPt).length == 1) {
+  if(state.tool == 'move'){
+    state.movingStart = {x:event.clientX,y: event.clientY}
+  }else{
+    //原来的双指判断等逻辑
+    if (state.mode == true && state.currentPointerType === 'pen') {
+      state.scrolltop = canvas.value.parentElement.scrollTop
       state.isDrawing = true
+      document.addEventListener('pointermove', handlePointerMove)
+      document.addEventListener('pointerup', handlePointerUp)
       state.points = []
-      state.points.push({ x: event.pageX, y: event.pageY })
+      state.points.push(
+        { x: (event.clientX - state.offsetLeft)*state.scaleCount, 
+        y: (event.clientY - state.offsetTop)*state.scaleCount })
       state.beginPoint = state.points[0]
+    } else if (state.mode == true && state.currentPointerType === 'touch') {
+      state.isScroll = id
+      state.startY = event.clientY
+      state.scrolltop = canvas.value.parentElement.scrollTop
+    } else if (state.mode === false) {
+      state.scrolltop = canvas.value.parentElement.scrollTop
+      if (Object.keys(state.multiLastPt).length == 2) {
+        state.isDrawing = false
+        state.isScroll = id
+        state.startY = event.clientY
+      } else if (Object.keys(state.multiLastPt).length == 1) {
+        state.isDrawing = true
+        document.addEventListener('pointermove', handlePointerMove)
+        document.addEventListener('pointerup', handlePointerUp)
+        state.points = []
+        state.points.push(
+          { x: (event.clientX - state.offsetLeft)*state.scaleCount, 
+          y: (event.clientY - state.offsetTop)*state.scaleCount })
+        state.beginPoint = state.points[0]
+      }
     }
   }
 }
 
-const drawLine = (startp, endp, cl, ct) => {
-  
-  state.context.beginPath()
-  state.context.moveTo((startp.x - cl), (startp.y - ct))
-  // state.context.quadraticCurveTo((ctrlp.x - cl), (ctrlp.y - ct), (endp.x - cl), (endp.y - ct))
-  state.context.lineTo((endp.x - cl), (endp.y - ct))
-  state.context.strokeStyle = state.penColor
-  state.context.lineCap = "round"
-  state.context.stroke()
-  state.context.closePath()
+const drawLine = (startp, endp) => {
+
+  const ctx = state.erasing ? state.historyContext : state.context;
+
+  ctx.beginPath()
+  ctx.moveTo(startp.x/state.scaleCount, startp.y/state.scaleCount)
+  ctx.lineTo(endp.x/state.scaleCount, endp.y/state.scaleCount)
+  ctx.strokeStyle = state.penColor
+  ctx.lineWidth = state.erasing ? state.eraserWidth/state.scaleCount : state.penWidth/state.scaleCount  
+  ctx.stroke()
+  ctx.closePath()
+
+}
+
+const updateOffset = () => {
+  const rect = canvas.value.getBoundingClientRect()
+
+  state.offsetLeft = rect.left
+  state.offsetTop = rect.top
 }
 
 const handlePointerMove = (event) => {
   if (state.dragToolsBar) return
-  
-  const id = event.pointerId
-  if (state.isDrawing && state.multiLastPt[id]) {
-    if ((state.mode == true && state.currentPointerType === 'pen') || state.mode === false) {
-      const scrolltop = canvas.value.parentElement.scrollTop
-      if (!state.erasing) {
-        if (state.currentPointerType == 'pen') {
-          state.context.lineWidth = event.pressure * state.penWidth
+  if (state.movingStart){
+    state.moveingOffset = {
+      x:(event.clientX - state.movingStart.x)*state.scaleCount,
+      y:(event.clientY - state.movingStart.y)*state.scaleCount}
+  }else{
+    //之前的逻辑
+    const id = event.pointerId
+    if (state.isDrawing && state.multiLastPt[id]) {
+      if ((state.mode == true && state.currentPointerType === 'pen') || state.mode === false) {
+        if (!state.erasing) {
+          if (state.currentPointerType == 'pen') {
+            state.context.lineWidth = event.pressure * state.penWidth/state.scaleCount
+          } else {
+            state.context.lineWidth = state.penWidth/state.scaleCount
+          }
         } else {
-          state.context.lineWidth = state.penWidth
+          state.historyContext.lineWidth = state.eraserWidth/state.scaleCount
         }
-      } else {
-        state.context.lineWidth = state.eraserWidth
+        
+        const endp = { 
+          x: (event.clientX - state.offsetLeft)*state.scaleCount, 
+          y: (event.clientY - state.offsetTop)*state.scaleCount}
+        state.points.push(endp)
+        drawLine(state.beginPoint,endp)
+        state.beginPoint = endp
       }
-      
-      const endp = { x: event.pageX, y: event.pageY }
-      state.points.push(endp)
-      // console.log(state.points.length)
-      const ct = state.offsetTop - scrolltop
-      drawLine(state.beginPoint,  endp, state.offsetLeft, ct)
-      state.beginPoint = endp
+    } else if (state.isScroll == id) {
+      const y = event.clientY - state.startY
+      canvas.value.parentElement.scrollTop = state.scrolltop - y
     }
-  } else if (state.isScroll == id) {
-    const y = event.pageY - state.startY
-    canvas.value.parentElement.scrollTop = state.scrolltop - y
   }
+  
+    
 }
 
 
 // 平滑曲线不要删除
-// const quadraticLine = () => {
-//   state.context.beginPath()
-//   const scrolltop = canvas.value.parentElement.scrollTop
-  
-//   const ct = state.offsetTop - scrolltop
-//   const cl = state.offsetLeft
+const quadraticLine = (points=null,color=null,lineWidth=null) => {
 
-//   state.context.moveTo(state.points[0].x-cl,state.points[0].y-ct)
-//   for (let i = 1; i < state.points.length; i++){
-//     const cpx = (state.points[i].x + state.points[i-1].x) / 2
-//     const cpy = (state.points[i].y + state.points[i-1].y) / 2
-//     state.context.quadraticCurveTo(state.points[i-1].x-cl,state.points[i-1].y-ct,cpx-cl,cpy-ct)
-//   }
-//   state.context.strokeStyle = "blue"
-//   // state.context.lineWidth = 3
-//   state.context.stroke()
-  
-//   state.context.closePath()
-// }
+  const pt = points ? points : simplifyPoints(state.points,1)
+  const cur_color = color ? color : state.penColor
+  const cur_line_width = lineWidth ? lineWidth : state.penWidth
+  state.historyContext.beginPath()
+
+  state.historyContext.moveTo((pt[0].x + state.view.x)/state.scaleCount,(pt[0].y + state.view.y)/state.scaleCount)
+  for (let i = 1; i < pt.length; i++){
+    const cpx = (pt[i].x + pt[i-1].x) / 2
+    const cpy = (pt[i].y + pt[i-1].y) / 2
+    state.historyContext.quadraticCurveTo(
+      (pt[i-1].x + state.view.x)/state.scaleCount,
+      (pt[i-1].y + state.view.y)/state.scaleCount,
+      (cpx + state.view.x)/state.scaleCount,
+      (cpy + state.view.y)/state.scaleCount)
+  }
+  state.historyContext.lineTo(
+    (pt[pt.length-1].x + state.view.x)/state.scaleCount,
+    (pt[pt.length-1].y + state.view.y)/state.scaleCount)
+  state.historyContext.strokeStyle = cur_color
+  state.historyContext.lineWidth = cur_line_width/state.scaleCount
+
+
+  //调试view视口的代码
+  state.context.strokeStyle = "#000"
+  state.context.lineWidth = 1
+  state.context.clearRect(0,0,canvas.value.width,canvas.value.height)
+
+
+
+  state.context.strokeRect(state.view.x,state.view.y,state.view.width,state.view.height)
+  state.historyContext.stroke()
+  if(points==null){
+    state.allPoints.push({
+      tool:state.erasing ? 0 : 1, //0橡皮，1画笔
+      points:pt,
+      color:cur_color,
+      width:cur_line_width
+    })
+  }
+    
+  state.historyContext.closePath()
+}
+
+
 
 const handlePointerUp = (event) => {
   if (state.dragToolsBar) return
   
   const id = event.pointerId
-  if (state.isDrawing) {
-    state.isDrawing = false
-    // quadraticLine()
+  if (state.movingStart){
+    state.view.x += state.moveingOffset.x
+    state.view.y += state.moveingOffset.y
+    clearAll()
+    reDraw()
+    state.movingStart = null
+  }else{
+    if (state.isDrawing) {
+      state.isDrawing = false
+      
+      if (state.erasing==false)
+        quadraticLine()
+    }
+    if (state.multiLastPt[id]) {
+      delete state.multiLastPt[id]
+    }
+    if (state.isScroll) {
+      state.isScroll = null
+    }
   }
-  if (state.multiLastPt[id]) {
-    delete state.multiLastPt[id]
+  
+}
+
+const clearAll = () => {
+  state.context.clearRect(0,0,canvas.value.width,canvas.value.height)
+  state.historyContext.clearRect(0,0,canvas.value.width,canvas.value.height)
+}
+
+const simplifyPoints = (points, tolerance = 1)=>{
+  if (points.length <= 2) return points;
+  
+  const first = points[0];
+  const last = points[points.length - 1];
+  
+  // 找到离首尾连线最远的点
+  let maxDist = 0;
+  let index = 0;
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = perpendicularDistance(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      index = i;
+    }
   }
-  if (state.isScroll) {
-    state.isScroll = null
+  
+  // 递归处理子分段
+  if (maxDist > tolerance) {
+    const left = simplifyPoints(points.slice(0, index + 1), tolerance);
+    const right = simplifyPoints(points.slice(index), tolerance);
+    return left.slice(0, -1).concat(right);
+  } else {
+    return [first, last];
   }
 }
 
+// 计算点到线段的垂直距离
+const perpendicularDistance = (point, lineStart, lineEnd)=> {
+  const area = Math.abs(
+    (lineEnd.x - lineStart.x) * (lineStart.y - point.y) - 
+    (lineStart.x - point.x) * (lineEnd.y - lineStart.y)
+  );
+  const lineLength = Math.hypot(lineEnd.x - lineStart.x, lineEnd.y - lineStart.y);
+  return area / lineLength;
+}
+
+const reDraw = () => {
+  console.log(state.view)
+  
+  state.allPoints.forEach((points)=>{
+    // 检查当前笔画是否有至少一个点在可视范围内
+    const hasVisiblePoint = points.points.some(point => {
+      return point.x >= state.view.x &&
+             point.x <= state.view.x + state.view.width &&
+             point.y >= state.view.y && 
+             point.y <= state.view.y + state.view.height;
+    });
+
+    // 只有当有可见点时才会绘制
+    if (hasVisiblePoint) {
+      state.erasing = (points.tool == 0);
+      console.log(points);
+      quadraticLine(points.points, points.color, points.width);
+    }
+  })
+}
+
 const getcanvastool = (tool) => {
-  console.log("click")
+  state.tool = tool
   if (tool == 'pencil') {
-    state.context.globalCompositeOperation = 'source-over'
+    state.historyContext.globalCompositeOperation = 'source-over'
     state.erasing = false
   } else if (tool == "eraser") {
-    state.context.globalCompositeOperation = 'destination-out'
+    state.historyContext.globalCompositeOperation = 'destination-out'
     state.erasing = true
   }
 }
@@ -397,18 +570,53 @@ const changeCanvas = (newval, oldval) => {
     resize(imageData)
   })
 }
+
+
+const zoomIn = () => {
+  if(state.scaleCount - 0.1 <= 0)
+    return
+  state.scaleCount = parseFloat((state.scaleCount - 0.1).toFixed(1));
+
+  state.view = {x:0,y:0,width:Math.round(canvas.value.width*state.scaleCount),height:Math.round(canvas.value.height*state.scaleCount)}
+  clearAll()
+  reDraw()
+}
+
+const zoomOut = () => {
+  if(state.scaleCount + 0.1 >= 2)
+    return
+  state.scaleCount = parseFloat((state.scaleCount + 0.1).toFixed(1))
+  state.view = {x:0,y:0,width:Math.round(canvas.value.width*state.scaleCount),height:Math.round(canvas.value.height*state.scaleCount)}
+  clearAll()
+  reDraw()
+}
 </script>
 
 <style scoped>
-  canvas {
-    background-color: #eeef;
-    display: block;
+  .canvas-area{
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .canvas-history,.canvas-cur {
+/*    display: block;*/
     touch-action: none;
-/*    position: absolute;*/
     image-rendering: -moz-crisp-edges;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     -ms-interpolation-mode: nearest-neighbor;
+  }
+
+  .canvas-history {
+    background-color: #eee;
+  }
+
+  .canvas-cur{
+    position: absolute;
+    top: 0;
+    left:0;
+    z-index: 1;
   }
 
   .buttonbox{
