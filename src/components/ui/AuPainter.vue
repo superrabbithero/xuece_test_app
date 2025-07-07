@@ -7,10 +7,14 @@
     <input type="button" class="fill" value="缩小" @click="zoomOut"/>
   </div>
   <div class="canvas-area" ref="canvasArea">
+    
+    <canvas v-show="show" ref="canvasBcg" class="canvas-background">
+    </canvas>
+    
     <canvas v-show="show" ref="canvas" class="canvas-cur"
                @pointerdown="handlePointerDown">
     </canvas>
-    <canvas v-show="show" ref="canvasHistory" class="canvas-history">
+    <canvas v-show="state.historyShow" ref="canvasHistory" class="canvas-history">
     </canvas>
   </div>
 
@@ -85,6 +89,8 @@ const state = reactive({
   isScroll: 0,
   context: null,
   historyContext:null,
+  bcgContext:null,
+  historyShow:true,
   currentPointerType: null,
   multiLastPt: {},
   offsetTop: 0,
@@ -131,6 +137,7 @@ const state = reactive({
 
 const canvas = ref(null)
 const canvasHistory = ref(null)
+const canvasBcg = ref(null)
 const dragToolsBar = ref(null)
 const canvasArea = ref(null)
 
@@ -255,6 +262,15 @@ const init = () => {
   canvasHistory.value.style.width = canvasHistory.value.parentElement.clientWidth + "px"
   canvasHistory.value.style.height = canvasHistory.value.parentElement.clientHeight + "px"
 
+  canvasBcg.value.width = canvasBcg.value.parentElement.clientWidth
+  canvasBcg.value.height = canvasBcg.value.parentElement.clientHeight
+  canvasBcg.value.style.width = canvasBcg.value.parentElement.clientWidth + "px"
+  canvasBcg.value.style.height = canvasBcg.value.parentElement.clientHeight + "px"
+
+  //初始化背景层
+  state.bcgContext = canvasBcg.value.getContext('2d')
+  drawBackground()
+
   //初始化实时层
   state.context = canvas.value.getContext('2d')
   // state.context.scale(2,2)
@@ -275,6 +291,32 @@ const init = () => {
 //   state.mode = !state.mode
 // }
 
+const drawBackground = (dotSize = 1,gridSize = 15) => {
+  
+    state.bcgContext.fillStyle = "#fff"
+    state.bcgContext.fillRect(0,0, canvasBcg.value.width,canvasBcg.value.height)
+    // 计算水平和垂直方向上的点数
+    const dotsX = Math.floor(canvasBcg.value.width / gridSize);
+    const dotsY = Math.floor(canvasBcg.value.height / gridSize);
+
+    // 设置圆点颜色
+    state.bcgContext.fillStyle = '#aaa';
+
+    // 遍历所有点并绘制
+    for (let x = 0; x < dotsX; x++) {
+      for (let y = 0; y < dotsY; y++) {
+        const posX = x * gridSize + gridSize / 2; // 计算圆点中心X坐标
+        const posY = y * gridSize + gridSize / 2; // 计算圆点中心Y坐标
+
+        state.bcgContext.beginPath();
+        state.bcgContext.arc(posX, posY, dotSize, 0, Math.PI * 2); // 绘制圆点
+        state.bcgContext.fill();
+      }
+    }
+  
+  
+}
+
 const handlePointerDown = (event) => {
   if (state.dragToolsBar) return
   
@@ -291,7 +333,10 @@ const handlePointerDown = (event) => {
   state.multiLastPt[id] = { x: event.clientX, y: event.clientY }
   
   if(state.tool == 'move'){
+    
     state.movingStart = {x:event.clientX,y: event.clientY}
+    state.context.drawImage(canvasHistory.value,0,0)
+    state.historyShow = false
   }else{
     //原来的双指判断等逻辑
     if (state.mode == true && state.currentPointerType === 'pen') {
@@ -301,8 +346,8 @@ const handlePointerDown = (event) => {
       document.addEventListener('pointerup', handlePointerUp)
       state.points = []
       state.points.push(
-        { x: (event.clientX - state.offsetLeft)*state.scaleCount, 
-        y: (event.clientY - state.offsetTop)*state.scaleCount })
+        { x: (event.clientX - state.offsetLeft + state.view.x)*state.scaleCount, 
+        y: (event.clientY - state.offsetTop + state.view.y)*state.scaleCount })
       state.beginPoint = state.points[0]
     } else if (state.mode == true && state.currentPointerType === 'touch') {
       state.isScroll = id
@@ -320,8 +365,8 @@ const handlePointerDown = (event) => {
         document.addEventListener('pointerup', handlePointerUp)
         state.points = []
         state.points.push(
-          { x: (event.clientX - state.offsetLeft)*state.scaleCount, 
-          y: (event.clientY - state.offsetTop)*state.scaleCount })
+          { x: (event.clientX - state.offsetLeft + state.view.x)*state.scaleCount, 
+          y: (event.clientY - state.offsetTop + state.view.y)*state.scaleCount })
         state.beginPoint = state.points[0]
       }
     }
@@ -333,13 +378,12 @@ const drawLine = (startp, endp) => {
   const ctx = state.erasing ? state.historyContext : state.context;
 
   ctx.beginPath()
-  ctx.moveTo(startp.x/state.scaleCount, startp.y/state.scaleCount)
-  ctx.lineTo(endp.x/state.scaleCount, endp.y/state.scaleCount)
+  ctx.moveTo((startp.x)/state.scaleCount - state.view.x, (startp.y)/state.scaleCount - state.view.y)
+  ctx.lineTo((endp.x)/state.scaleCount - state.view.x, (endp.y)/state.scaleCount - state.view.y)
   ctx.strokeStyle = state.penColor
   ctx.lineWidth = state.erasing ? state.eraserWidth/state.scaleCount : state.penWidth/state.scaleCount  
   ctx.stroke()
   ctx.closePath()
-
 }
 
 const updateOffset = () => {
@@ -352,9 +396,13 @@ const updateOffset = () => {
 const handlePointerMove = (event) => {
   if (state.dragToolsBar) return
   if (state.movingStart){
+    const offsetX = event.clientX - state.movingStart.x
+    const offsetY = event.clientY - state.movingStart.y
     state.moveingOffset = {
-      x:(event.clientX - state.movingStart.x)*state.scaleCount,
-      y:(event.clientY - state.movingStart.y)*state.scaleCount}
+      x: offsetX,
+      y: offsetY}
+    canvas.value.style.top = offsetY + 'px'
+    canvas.value.style.left = offsetX + 'px'
   }else{
     //之前的逻辑
     const id = event.pointerId
@@ -371,8 +419,8 @@ const handlePointerMove = (event) => {
         }
         
         const endp = { 
-          x: (event.clientX - state.offsetLeft)*state.scaleCount, 
-          y: (event.clientY - state.offsetTop)*state.scaleCount}
+          x: (event.clientX - state.offsetLeft + state.view.x)*state.scaleCount, 
+          y: (event.clientY - state.offsetTop + state.view.y)*state.scaleCount}
         state.points.push(endp)
         drawLine(state.beginPoint,endp)
         state.beginPoint = endp
@@ -388,39 +436,42 @@ const handlePointerMove = (event) => {
 
 
 // 平滑曲线不要删除
-const quadraticLine = (points=null,color=null,lineWidth=null) => {
+const quadraticLine = (points=null) => {
 
-  const pt = points ? points : simplifyPoints(state.points,1)
-  const cur_color = color ? color : state.penColor
-  const cur_line_width = lineWidth ? lineWidth : state.penWidth
+  const pt = points ? points.points : simplifyPoints(state.points,1)
+  const cur_color = points ? points.color : state.penColor
+  const cur_line_width = points ? points.width : state.penWidth
+
+  const temp = state.historyContext.globalCompositeOperation
+  if(points != null){
+    state.historyContext.globalCompositeOperation = points.tool == 0 ? 'destination-out' : 'source-over'
+  }
+
+  state.historyContext.beginPath()
   state.historyContext.beginPath()
 
-  state.historyContext.moveTo((pt[0].x + state.view.x)/state.scaleCount,(pt[0].y + state.view.y)/state.scaleCount)
+  state.historyContext.moveTo((pt[0].x)/state.scaleCount - state.view.x,(pt[0].y)/state.scaleCount - state.view.y)
   for (let i = 1; i < pt.length; i++){
     const cpx = (pt[i].x + pt[i-1].x) / 2
     const cpy = (pt[i].y + pt[i-1].y) / 2
     state.historyContext.quadraticCurveTo(
-      (pt[i-1].x + state.view.x)/state.scaleCount,
-      (pt[i-1].y + state.view.y)/state.scaleCount,
-      (cpx + state.view.x)/state.scaleCount,
-      (cpy + state.view.y)/state.scaleCount)
+      (pt[i-1].x)/state.scaleCount - state.view.x,
+      (pt[i-1].y)/state.scaleCount - state.view.y,
+      (cpx)/state.scaleCount - state.view.x,
+      (cpy)/state.scaleCount - state.view.y)
   }
   state.historyContext.lineTo(
-    (pt[pt.length-1].x + state.view.x)/state.scaleCount,
-    (pt[pt.length-1].y + state.view.y)/state.scaleCount)
+    (pt[pt.length-1].x)/state.scaleCount - state.view.x,
+    (pt[pt.length-1].y)/state.scaleCount - state.view.y)
   state.historyContext.strokeStyle = cur_color
   state.historyContext.lineWidth = cur_line_width/state.scaleCount
 
-
-  //调试view视口的代码
-  state.context.strokeStyle = "#000"
-  state.context.lineWidth = 1
   state.context.clearRect(0,0,canvas.value.width,canvas.value.height)
 
-
-
-  state.context.strokeRect(state.view.x,state.view.y,state.view.width,state.view.height)
   state.historyContext.stroke()
+
+  state.historyContext.globalCompositeOperation = temp
+
   if(points==null){
     state.allPoints.push({
       tool:state.erasing ? 0 : 1, //0橡皮，1画笔
@@ -440,17 +491,28 @@ const handlePointerUp = (event) => {
   
   const id = event.pointerId
   if (state.movingStart){
-    state.view.x += state.moveingOffset.x
-    state.view.y += state.moveingOffset.y
+    state.view.x -= state.moveingOffset.x
+    state.view.y -= state.moveingOffset.y
     clearAll()
     reDraw()
     state.movingStart = null
+    canvas.value.style.top = 0
+    canvas.value.style.left = 0
+    state.historyShow = true
   }else{
     if (state.isDrawing) {
       state.isDrawing = false
       
       if (state.erasing==false)
         quadraticLine()
+      else{
+        state.allPoints.push({
+          tool:0, //0橡皮，1画笔
+          points:simplifyPoints(state.points,1),
+          color:"0",
+          width:state.eraserWidth
+        })
+      }
     }
     if (state.multiLastPt[id]) {
       delete state.multiLastPt[id]
@@ -506,22 +568,19 @@ const perpendicularDistance = (point, lineStart, lineEnd)=> {
 }
 
 const reDraw = () => {
-  console.log(state.view)
   
   state.allPoints.forEach((points)=>{
     // 检查当前笔画是否有至少一个点在可视范围内
     const hasVisiblePoint = points.points.some(point => {
-      return point.x >= state.view.x &&
-             point.x <= state.view.x + state.view.width &&
-             point.y >= state.view.y && 
-             point.y <= state.view.y + state.view.height;
+      return point.x >= state.view.x * state.scaleCount &&
+             point.x <= state.view.x * state.scaleCount + state.view.width &&
+             point.y >= state.view.y * state.scaleCount && 
+             point.y <= state.view.y * state.scaleCount + state.view.height;
     });
 
     // 只有当有可见点时才会绘制
     if (hasVisiblePoint) {
-      state.erasing = (points.tool == 0);
-      console.log(points);
-      quadraticLine(points.points, points.color, points.width);
+        quadraticLine(points);
     }
   })
 }
@@ -576,8 +635,8 @@ const zoomIn = () => {
   if(state.scaleCount - 0.1 <= 0)
     return
   state.scaleCount = parseFloat((state.scaleCount - 0.1).toFixed(1));
-
-  state.view = {x:0,y:0,width:Math.round(canvas.value.width*state.scaleCount),height:Math.round(canvas.value.height*state.scaleCount)}
+  state.view.width = Math.round(canvas.value.width*state.scaleCount)
+  state.view.height = Math.round(canvas.value.height*state.scaleCount)
   clearAll()
   reDraw()
 }
@@ -586,7 +645,8 @@ const zoomOut = () => {
   if(state.scaleCount + 0.1 >= 2)
     return
   state.scaleCount = parseFloat((state.scaleCount + 0.1).toFixed(1))
-  state.view = {x:0,y:0,width:Math.round(canvas.value.width*state.scaleCount),height:Math.round(canvas.value.height*state.scaleCount)}
+  state.view.width = Math.round(canvas.value.width*state.scaleCount)
+  state.view.height = Math.round(canvas.value.height*state.scaleCount)
   clearAll()
   reDraw()
 }
@@ -597,9 +657,10 @@ const zoomOut = () => {
     position: relative;
     width: 100%;
     height: 100%;
+    overflow: hidden;
   }
 
-  .canvas-history,.canvas-cur {
+  .canvas-history,.canvas-cur,.canvas-background {
 /*    display: block;*/
     touch-action: none;
     image-rendering: -moz-crisp-edges;
@@ -608,14 +669,15 @@ const zoomOut = () => {
     -ms-interpolation-mode: nearest-neighbor;
   }
 
-  .canvas-history {
-    background-color: #eee;
-  }
 
-  .canvas-cur{
+  .canvas-cur,.canvas-history{
     position: absolute;
     top: 0;
-    left:0;
+    left: 0;
+    z-index: 2;
+  }
+
+  .canvas-history {
     z-index: 1;
   }
 
