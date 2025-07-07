@@ -18,7 +18,7 @@
         <au-icon name="RiSettings2Line" size="22"></au-icon>
       </div>
       <div class="edit-tools-drag" @pointerdown="dragdown($event)"  @mouseup="dragup">
-        <au-icon style="user-select: none;" name="drag01" size="20"></au-icon>
+        <au-icon style="user-select: none;" name="RiDraggable" size="20"></au-icon>
       </div>
     </div>
 
@@ -107,26 +107,12 @@ const dragToolsBar = ref(null)
 // const { modal_show } = toRefs(state)
 // 解构常用状态
 const { 
-  // context, 
-  // isDrawing, 
-  // isScroll, 
-  // multiLastPt, 
-  // offsetTop, 
-  // offsetLeft, 
-  // points, 
-  // beginPoint, 
   penColor,
   penWidth,
   eraserWidth,
   erasing,
-  // currentPointerType,
   mode,
-  // startY,
-  // scrolltop,
   editToolsActive,
-  // pressTimer,
-  // pressTimerNum,
-  // imgDataList
   colorList,
   modal_show
 } = toRefs(state)
@@ -201,8 +187,8 @@ const resize = (Imgdata = null) => {
   const textBaseline = state.context.textBaseline
   const globalCompositeOperation = state.context.globalCompositeOperation
   
-  canvasEl.width = state.el.clientWidth
-  canvasEl.height = state.el.clientHeight
+  canvasEl.width = canvas.value.clientWidth
+  canvasEl.height = canvas.value.clientHeight
   state.canvasWidth = canvasEl.width
   state.canvasHeight = canvasEl.height
   // 清空并重置画布
@@ -225,16 +211,19 @@ const init = () => {
   if (window.PointerEvent) {
     state.log = "Pointer events are supported."
   }
-  const canvasEl = canvas.value
-  const parent = canvasEl.parentElement
-  canvasEl.width = parent.clientWidth
-  canvasEl.height = parent.clientHeight
-  state.canvasWidth = canvasEl.width
-  state.canvasHeight = canvasEl.height
-  state.el = parent
-  state.offsetLeft = parent.offsetLeft
-  state.offsetTop = parent.offsetTop
-  state.context = canvasEl.getContext('2d')
+  
+
+  canvas.value.width = canvas.value.parentElement.clientWidth * 5
+  canvas.value.height = canvas.value.parentElement.clientHeight * 5
+  canvas.value.style.width = canvas.value.parentElement.clientWidth + "px"
+  canvas.value.style.height = canvas.value.parentElement.clientHeight + "px"
+  console.log(canvas.value.width,canvas.value.height)
+  // state.canvasWidth = canvas.value.width
+  // state.canvasHeight = canvas.value.height
+  // state.offsetLeft = canvas.value.offsetLeft
+  // state.offsetTop = canvas.value.offsetTop
+  state.context = canvas.value.getContext('2d')
+  state.context.scale(5,5)
   state.context.strokeStyle = state.penColor
 }
 
@@ -246,18 +235,21 @@ const handlePointerDown = (event) => {
   if (state.dragToolsBar) return
   
   state.currentPointerType = event.pointerType
+
+  state.offsetLeft = canvas.value.offsetLeft
+  state.offsetTop = canvas.value.offsetTop
+
   if (state.mode == false && state.currentPointerType == 'pen') {
     state.mode = true
-    // 这里假设 $toast 是通过插件注入的
-    // 实际使用时需要根据你的 toast 实现调整
     console.log(`检测到正在使用触控笔，开启"仅触控笔"模式，可在画板设置中关闭`)
   }
   
+
   const id = event.pointerId
   state.multiLastPt[id] = { x: event.pageX, y: event.pageY }
   
   if (state.mode == true && state.currentPointerType === 'pen') {
-    state.scrolltop = state.el.parentElement.scrollTop
+    state.scrolltop = canvas.value.parentElement.scrollTop
     state.isDrawing = true
     state.points = []
     state.points.push({ x: event.pageX, y: event.pageY })
@@ -265,9 +257,9 @@ const handlePointerDown = (event) => {
   } else if (state.mode == true && state.currentPointerType === 'touch') {
     state.isScroll = id
     state.startY = event.pageY
-    state.scrolltop = state.el.parentElement.scrollTop
+    state.scrolltop = canvas.value.parentElement.scrollTop
   } else if (state.mode === false) {
-    state.scrolltop = state.el.parentElement.scrollTop
+    state.scrolltop = canvas.value.parentElement.scrollTop
     if (Object.keys(state.multiLastPt).length == 2) {
       state.isDrawing = false
       state.isScroll = id
@@ -281,10 +273,12 @@ const handlePointerDown = (event) => {
   }
 }
 
-const drawLine = (startp, ctrlp, endp, cl, ct) => {
+const drawLine = (startp, endp, cl, ct) => {
+  
   state.context.beginPath()
   state.context.moveTo((startp.x - cl), (startp.y - ct))
-  state.context.quadraticCurveTo((ctrlp.x - cl), (ctrlp.y - ct), (endp.x - cl), (endp.y - ct))
+  // state.context.quadraticCurveTo((ctrlp.x - cl), (ctrlp.y - ct), (endp.x - cl), (endp.y - ct))
+  state.context.lineTo((endp.x - cl), (endp.y - ct))
   state.context.strokeStyle = state.penColor
   state.context.lineCap = "round"
   state.context.stroke()
@@ -297,7 +291,7 @@ const handlePointerMove = (event) => {
   const id = event.pointerId
   if (state.isDrawing && state.multiLastPt[id]) {
     if ((state.mode == true && state.currentPointerType === 'pen') || state.mode === false) {
-      const scrolltop = state.el.parentElement.scrollTop
+      const scrolltop = canvas.value.parentElement.scrollTop
       if (!state.erasing) {
         if (state.currentPointerType == 'pen') {
           state.context.lineWidth = event.pressure * state.penWidth
@@ -310,24 +304,38 @@ const handlePointerMove = (event) => {
       
       const endp = { x: event.pageX, y: event.pageY }
       state.points.push(endp)
-
-      if (state.points.length > 2) {
-        const lastTwoPoints = state.points.slice(-2)
-        const controlPoint = lastTwoPoints[0]
-        const endPoint = {
-          x: (lastTwoPoints[0].x + lastTwoPoints[1].x) / 2,
-          y: (lastTwoPoints[0].y + lastTwoPoints[1].y) / 2,
-        }
-        const ct = state.offsetTop - scrolltop
-        drawLine(state.beginPoint, controlPoint, endPoint, state.offsetLeft, ct)
-        state.beginPoint = endPoint
-      }
+      // console.log(state.points.length)
+      const ct = state.offsetTop - scrolltop
+      drawLine(state.beginPoint,  endp, state.offsetLeft, ct)
+      state.beginPoint = endp
     }
   } else if (state.isScroll == id) {
     const y = event.pageY - state.startY
-    state.el.parentElement.scrollTop = state.scrolltop - y
+    canvas.value.parentElement.scrollTop = state.scrolltop - y
   }
 }
+
+
+// 平滑曲线不要删除
+// const quadraticLine = () => {
+//   state.context.beginPath()
+//   const scrolltop = canvas.value.parentElement.scrollTop
+  
+//   const ct = state.offsetTop - scrolltop
+//   const cl = state.offsetLeft
+
+//   state.context.moveTo(state.points[0].x-cl,state.points[0].y-ct)
+//   for (let i = 1; i < state.points.length; i++){
+//     const cpx = (state.points[i].x + state.points[i-1].x) / 2
+//     const cpy = (state.points[i].y + state.points[i-1].y) / 2
+//     state.context.quadraticCurveTo(state.points[i-1].x-cl,state.points[i-1].y-ct,cpx-cl,cpy-ct)
+//   }
+//   state.context.strokeStyle = "blue"
+//   // state.context.lineWidth = 3
+//   state.context.stroke()
+  
+//   state.context.closePath()
+// }
 
 const handlePointerUp = (event) => {
   if (state.dragToolsBar) return
@@ -335,6 +343,7 @@ const handlePointerUp = (event) => {
   const id = event.pointerId
   if (state.isDrawing) {
     state.isDrawing = false
+    // quadraticLine()
   }
   if (state.multiLastPt[id]) {
     delete state.multiLastPt[id]
@@ -396,6 +405,10 @@ const changeCanvas = (newval, oldval) => {
     display: block;
     touch-action: none;
 /*    position: absolute;*/
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
   }
 
   .buttonbox{
