@@ -16,6 +16,10 @@
     </canvas>
     <canvas v-show="state.historyShow" ref="canvasHistory" class="canvas-history">
     </canvas>
+    <div v-show="state.realErasing" class="tool-mouse-eraser " ref="toolM">
+      <div class="liquid-glass"></div>
+    </div>
+    
   </div>
 
     <div v-show="show" :class="{'edit-tools-box':true, 'active':editToolsActive || modal_show.setting_show}" ref="dragToolsBar" @pointerover="handleToolsBarFocus" @pointerleave="handleToolsBarOut">
@@ -78,7 +82,6 @@ const props = defineProps({
   switch: Number
 })
 
-// const emit = defineEmits([])
 
 // 响应式数据
 const state = reactive({
@@ -100,6 +103,7 @@ const state = reactive({
   editTools_show: false,
   erasing: false,
   realErasing: false,
+  erasingPoints: [],
   el: null,
   points: [],
   beginPoint: { x: 0, y: 0 },
@@ -142,6 +146,7 @@ const canvasHistory = ref(null)
 const canvasBcg = ref(null)
 const dragToolsBar = ref(null)
 const canvasArea = ref(null)
+const toolM = ref(null)
 
 // const { modal_show } = toRefs(state)
 // 解构常用状态
@@ -340,8 +345,26 @@ const handlePointerDown = (event) => {
     state.context.drawImage(canvasHistory.value,0,0)
     state.historyShow = false
   }else if(state.tool == 'eraser'){
+    const size = state.eraserWidth/state.scaleCount
+    const radius = size/2
+    const x = event.clientX - state.offsetLeft - radius
+    const y = event.clientY - state.offsetTop - radius
+
+    toolM.value.style.width = `${size}px`;
+    toolM.value.style.height = `${size}px`;
+    toolM.value.style.left = `${x}px`;
+    toolM.value.style.top = `${y}px`;
+
+    state.erasingPoints = []
+    state.erasingPoints.push(
+      { x: Math.round((event.clientX - state.offsetLeft + state.view.x)*state.scaleCount), 
+      y: Math.round((event.clientY - state.offsetTop + state.view.y)*state.scaleCount) })
+    state.beginPoint = state.erasingPoints[0]
     state.realErasing = true
-    console.log(state.allPoints)
+    state.context.drawImage(canvasHistory.value,0,0)
+    state.historyContext.clearRect(0,0,canvasHistory.value.width,canvasHistory.value.height)
+    state.context.globalCompositeOperation = 'destination-out'
+    // console.log(state.allPoints)
   }
   else {
     //原来的双指判断等逻辑
@@ -381,7 +404,7 @@ const handlePointerDown = (event) => {
 
 const drawLine = (startp, endp) => {
 
-  const ctx = state.erasing ? state.historyContext : state.context;
+  const ctx = state.context;
 
   ctx.beginPath()
   ctx.moveTo((startp.x)/state.scaleCount - state.view.x, (startp.y)/state.scaleCount - state.view.y)
@@ -410,20 +433,22 @@ const handlePointerMove = (event) => {
     canvas.value.style.top = offsetY + 'px'
     canvas.value.style.left = offsetX + 'px'
   }else if(state.realErasing){
-    console.log("moving")
+    // console.log("moving")
+    const size = state.eraserWidth/state.scaleCount
+    const radius = size/2
+    const x = event.clientX - state.offsetLeft - radius
+    const y = event.clientY - state.offsetTop - radius
+    toolM.value.style.left = `${x}px`;
+    toolM.value.style.top = `${y}px`;
     const point = { 
           x: Math.round((event.clientX - state.offsetLeft + state.view.x)*state.scaleCount), 
           y: Math.round((event.clientY - state.offsetTop + state.view.y)*state.scaleCount)}
 
-    state.context.clearRect(0,0,canvas.value.width,canvas.value.height)
+    state.erasingPoints.push(point)
+    drawLine(state.beginPoint,point)
+    state.beginPoint = point
 
-    state.context.beginPath()
-    state.context.arc(point.x,point.y,state.eraserWidth/state.scaleCount/2,0,Math.PI * 2)
-    state.context.strokeStyle = "#000"
-    state.context.lineWidth = 2
-    state.context.stroke()
-
-    eraseStrokes(point.x,point.y,state.eraserWidth/state.scaleCount)
+    // eraseStrokes(point.x,point.y,state.eraserWidth/state.scaleCount)
   }else{
     //之前的逻辑
     const id = event.pointerId
@@ -464,9 +489,9 @@ const quadraticLine = (points=null) => {
   const cur_line_width = points ? points.width : state.penWidth
 
   const temp = state.historyContext.globalCompositeOperation
-  if(points != null){
-    state.historyContext.globalCompositeOperation = points.tool == 0 ? 'destination-out' : 'source-over'
-  }
+  // if(points != null){
+  //   state.historyContext.globalCompositeOperation = points.tool == 0 ? 'destination-out' : 'source-over'
+  // }
 
   state.historyContext.beginPath()
   state.historyContext.beginPath()
@@ -508,17 +533,17 @@ const quadraticLine = (points=null) => {
   }
     
   state.historyContext.closePath()
-  for (let i = 0; i < pt.length; i++){
+  // for (let i = 0; i < pt.length; i++){
 
-    state.historyContext.beginPath();
-    state.historyContext.arc(
-      (pt[i].x)/state.scaleCount - state.view.x,
-      (pt[i].y)/state.scaleCount - state.view.y, 
-      state.penWidth/2, 0, 
-      Math.PI * 2); // 绘制圆点
-    state.historyContext.fill();
-    state.historyContext.closePath()
-  }
+  //   state.historyContext.beginPath();
+  //   state.historyContext.arc(
+  //     (pt[i].x)/state.scaleCount - state.view.x,
+  //     (pt[i].y)/state.scaleCount - state.view.y, 
+  //     state.penWidth/2, 0, 
+  //     Math.PI * 2); // 绘制圆点
+  //   state.historyContext.fill();
+  //   state.historyContext.closePath()
+  // }
 }
 
 
@@ -538,7 +563,40 @@ const handlePointerUp = (event) => {
     state.historyShow = true
   }else if(state.realErasing){
     state.realErasing = false
-    console.log(state.allPoints)
+    state.erasingPoints.forEach(point => {
+      eraseStrokes(point.x,point.y,state.eraserWidth/2+1)
+    })
+    state.context.globalCompositeOperation = 'source-over'
+    clearAll()
+    reDraw(); // 重绘画布
+    // const pt = state.erasingPoints
+    // for (let i = 0; i < pt.length; i++){
+    //   state.historyContext.beginPath();
+    //   state.historyContext.arc(
+    //     (pt[i].x)/state.scaleCount - state.view.x,
+    //     (pt[i].y)/state.scaleCount - state.view.y, 
+    //     state.eraserWidth/state.scaleCount/2, 0, 
+    //     Math.PI * 2); // 绘制圆点
+    //   state.historyContext.lineWidth = 1
+    //   state.historyContext.stroke();
+    //   state.historyContext.closePath()
+    // }
+    // console.log(state.points)
+    // for(let i =0 ;i<state.points.length;i++){
+    //   state.historyContext.beginPath();
+    //   state.historyContext.arc(
+    //     (state.points[i].x)/state.scaleCount - state.view.x,
+    //     (state.points[i].y)/state.scaleCount - state.view.y, 
+    //     3, 0, 
+    //     Math.PI * 2); // 绘制圆点
+    //   const temStyle = state.historyContext.fillStyle
+    //   state.historyContext.fillStyle = i%2==0 ? "yellow":"green"
+    //   state.historyContext.fill();
+    //   state.historyContext.closePath()
+    //   state.historyContext.fillStyle = temStyle
+    // }
+    
+    // console.log(state.allPoints)
   }else{
     if (state.isDrawing) {
       state.isDrawing = false
@@ -641,7 +699,7 @@ const getcanvastool = (tool) => {
 }
 
 const handleToolsBarFocus = () => {
-  console.log("---------focus")
+  // console.log("---------focus")
   state.editToolsActive = true
   state.pressTimerNum = 0
   clearInterval(state.pressTimer)
@@ -698,112 +756,139 @@ const zoomOut = () => {
 //对象橡皮擦擦除逻辑
 // 橡皮擦功能
 const eraseStrokes = (eraserX, eraserY, eraserSize) => {
-  console.log(eraserX, eraserY, eraserSize)
   const newStrokes = [];
-  const eraserRadius = eraserSize / 2;
+  const eraserRadius = eraserSize;
 
-  state.allPoints.forEach( stroke => {
-    // const stroke = state.allPoints[index]
-    let remainingPoints = [stroke.points[0]]; // 保留起点
+  state.allPoints.forEach(stroke => {
+    let remainingPoints = [stroke.points[0]];
     let splitSegments = [];
 
     for (let i = 1; i < stroke.points.length; i++) {
       const prevPoint = stroke.points[i-1];
       const currentPoint = stroke.points[i];
-      
-      // 检查线段端点是否都在圆内
+
       const p1InCircle = isPointInCircle(prevPoint, {x: eraserX, y: eraserY}, eraserRadius);
       const p2InCircle = isPointInCircle(currentPoint, {x: eraserX, y: eraserY}, eraserRadius);
 
+      // 情况1：两端点都在圆内 → 整段删除
       if (p1InCircle && p2InCircle) {
-        remainingPoints = [currentPoint]
-        continue
+        remainingPoints = [currentPoint];
+        continue;
       }
-      // 检测线段与橡皮擦的碰撞
-      const intersection = checkLineEraserIntersection(
-        prevPoint, currentPoint, 
-        {x: eraserX, y: eraserY}, 
-        eraserRadius
-      );
 
-      if (!intersection) {
+      // 情况2：检测交点
+      const intersections = checkLineEraserIntersection(prevPoint, currentPoint, {x: eraserX, y: eraserY}, eraserRadius);
+      if (!intersections) {
         remainingPoints.push(currentPoint);
-      }else{
-        // 拆分为两个线段
-        splitSegments.push({
-          ...stroke,
-          points: [...remainingPoints, intersection.point]
-          // color: 
-        });
-        // 开始新的线段
-        remainingPoints = [intersection.point, currentPoint];
+        continue;
+      }
+
+      // 关键修复：根据擦除方向动态排序交点
+      const isReversed = prevPoint.x > currentPoint.x;
+      const sortedIntersections = intersections.sort(isReversed ? (a, b) => b.t - a.t : (a, b) => a.t - b.t);
+      state.points = sortedIntersections
+      // let lastPoint = prevPoint;
+      for (const intersect of sortedIntersections) {
+        const intersectPoint = { x: intersect.x, y: intersect.y };
+        // 添加交点前的部分
+        const ifPrePointInCircle = isPointInCircle(remainingPoints[remainingPoints.length-1], {x: eraserX, y: eraserY}, eraserRadius);
+
+        if(!ifPrePointInCircle){
+          // 如果前面的点不在圆里则加入之前的线段
+          const newPoints = [...remainingPoints, intersectPoint]
+            
+          splitSegments.push({
+            ...stroke,
+            points: newPoints
+          });
+          // console.log("添加交点前的部分",splitSegments[splitSegments.length-1])
+        } 
+        // 更新起点为当前交点
+        remainingPoints = [intersectPoint];
+        
+        // lastPoint = intersectPoint;
+      }
+
+      // 添加交点后的部分（如果终点不在圆内）
+      if (!p2InCircle) {
+        remainingPoints.push(currentPoint);
       }
     }
 
-    // 添加最后一段
+    // 添加剩余线段
     if (remainingPoints.length > 1) {
-      splitSegments.push({
-        ...stroke,
-        points: remainingPoints
-      });
+      
+      splitSegments.push({ ...stroke, points: remainingPoints });
+      // console.log("添加剩余线段",splitSegments[splitSegments.length-1])
     }
 
     newStrokes.push(...splitSegments);
-
   });
 
   state.allPoints = newStrokes;
-  state.historyContext.clearRect(0,0,canvasHistory.value.width,canvasHistory.value.height)
-  reDraw(); // 重绘画布
-}
-//橡皮擦和线段的碰撞判断
+};
+
+// 辅助函数：判断两点是否相同（避免浮点误差）
+// const isPointEqual = (p1, p2, epsilon = 1) => {
+//   return Math.abs(p1.x - p2.x) < epsilon && Math.abs(p1.y - p2.y) < epsilon;
+// };
+//求出橡皮擦和线段的交点
 const checkLineEraserIntersection = (p1, p2, eraserCenter, radius) => {
+  const { x: cx, y: cy } = eraserCenter;
+  const r = radius;
 
-   
-
-  // 线段到圆心的最短距离计算
+  // console.log(r)
+  
+  // 线段向量
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
-  const length = Math.sqrt(dx*dx + dy*dy);
-  
-  // 单位向量
-  const nx = dx / length;
-  const ny = dy / length;
   
   // 线段起点到圆心的向量
-  const cx = eraserCenter.x - p1.x;
-  const cy = eraserCenter.y - p1.y;
+  const fx = p1.x - cx;
+  const fy = p1.y - cy;
   
-  // 投影长度
-  const projection = cx * nx + cy * ny;
-  const closestPoint = {
-    x: p1.x + nx * Math.max(0, Math.min(projection, length)),
-    y: p1.y + ny * Math.max(0, Math.min(projection, length))
-  };
+  // 解二次方程 At² + Bt + C = 0
+  const A = dx * dx + dy * dy;
+  const B = 2 * (fx * dx + fy * dy);
+  const C = fx * fx + fy * fy - r * r;
   
-  // 距离计算
-  const distX = eraserCenter.x - closestPoint.x;
-  const distY = eraserCenter.y - closestPoint.y;
-  const distance = Math.sqrt(distX*distX + distY*distY);
+  const discriminant = B * B - 4 * A * C;
   
-  if (distance <= radius) {
-    console.log({
-      point: closestPoint,
-      distance: distance
-    })
-    return {
-      point: closestPoint,
-      distance: distance
-    };
+  // 无实数解（无交点）
+  if (discriminant < 0) return null;
+  
+  // 计算 t 值（交点在线段上的比例）
+  const t1 = (-B - Math.sqrt(discriminant)) / (2 * A);
+  const t2 = (-B + Math.sqrt(discriminant)) / (2 * A);
+  
+  const intersections = [];
+  
+  // 检查 t1 是否在线段范围内 [0,1]
+  if (t1 >= 0 && t1 <= 1) {
+    intersections.push({
+      x: Math.round(p1.x + t1 * dx),
+      y: Math.round(p1.y + t1 * dy),
+      t: t1
+    });
   }
-  return null;
-}
+  
+  // 检查 t2 是否在线段范围内 [0,1]
+  if (t2 >= 0 && t2 <= 1 && t2 !== t1) {
+    intersections.push({
+      x: Math.round(p1.x + t2 * dx),
+      y: Math.round(p1.y + t2 * dy),
+      t: t2
+    });
+  }
+  
+  return intersections.length > 0 ? intersections : null;
+};
 
 //判断点是否在圆内
 const isPointInCircle = (point, center, radius) => {
   const dx = point.x - center.x;
   const dy = point.y - center.y;
-  return dx * dx + dy * dy <= radius * radius;
+  return dx * dx + dy * dy <= radius * radius+1;
 };
 </script>
 
@@ -921,5 +1006,45 @@ const isPointInCircle = (point, center, radius) => {
     width: 0;
     border-left: var(--box-border);
     margin: 0 5px;
+  }
+
+  .tool-mouse-eraser{
+    position: absolute;
+    /* border: 1px solid #555; */
+    border-radius: 50%;
+  }
+
+  .liquid-glass {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+      /* 基础玻璃质感 */
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      2px 2px 15px rgba(0, 0, 0, 0.3),
+      inset 0 2px 4px rgba(255, 255, 255); /* 内外阴影增强立体感 */
+    backdrop-filter: blur(1px); /* 核心模糊效果 */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+    
+
+  
+  /* 边缘高光模拟玻璃反光 */
+  .liquid-glass::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      circle at 30% 30%, 
+      rgba(255, 255, 255, 0.8) 0%, 
+      transparent 50%
+    );
+    transform: rotate(30deg);
+    opacity: 0.6;
   }
 </style>
