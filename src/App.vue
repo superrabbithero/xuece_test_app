@@ -14,9 +14,10 @@
                 <icon-wrapper name="RiInstanceLine"  size="19" />
                 学测应用管理
               </div>
-              <div class="menu-item" @click="goto('/AppManage')">
-                <icon-wrapper name="RiCommandLine"  size="19" />
-                脚本管理
+              <div class="menu-item" @click="goto('/board')">
+                <!-- <icon-wrapper name="RiCommandLine"  size="19" /> -->
+                <icon-wrapper name="RiArtboard2Line"  size="19" />
+                白板工具
               </div>
               
               <!-- <div class="menu-item" >
@@ -44,7 +45,7 @@
       
     </div>
     <div class="au-main">
-      <div class="header-block" v-if="!$route.meta.headerBlockHidden"></div>
+      <div class="header-block" v-if="!$route.meta.headerHidden"></div>
       <router-view @toggle-header="setHeaderVisibility"></router-view>
     </div>
     <div v-if="!$route.meta.footerHidden" class="au-footer footer" >
@@ -180,7 +181,7 @@ const changeStyle = () => {
   height: 60px;
   border-bottom: var(--box-border);
   position: fixed;
-  z-index: 998;
+  z-index: 800;
   box-sizing: border-box;
   width: 100%;
   top: 0;

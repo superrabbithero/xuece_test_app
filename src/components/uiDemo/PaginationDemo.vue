@@ -6,7 +6,7 @@
 				popup
 			</div>
 			<div class="component-demo_view_content">
-				<au-pagination v-model="curPage" :totalPages="totalPages"/>
+				<au-pagination :key="componentKey" v-model="curPage" :totalPages="Number(totalPages)"/>
 			</div>
 		</div>
 		<div class="component-demo_config">
@@ -26,9 +26,15 @@
 </template>
 
 <script setup>
-import {ref} from 'vue'
+import {ref, watch} from 'vue'
 
 const totalPages = ref(20)
 const curPage = ref(1)
+
+const componentKey = ref(0)
+
+watch(totalPages, ()=>{
+	componentKey.value++
+})
 
 </script>

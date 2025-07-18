@@ -32,7 +32,6 @@ const iconComponent = RemixIcons[props.name]
 </script>
 
 <style scoped>
-
 </style>
 
 

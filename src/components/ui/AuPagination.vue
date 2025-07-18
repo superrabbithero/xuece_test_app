@@ -15,7 +15,7 @@
     </div>
 </template>
 <script setup>
-import { ref ,defineProps, onMounted,defineEmits} from 'vue'
+import { ref ,defineProps, onMounted, defineEmits} from 'vue'
 
 const emit = defineEmits(['update:modelValue'])
 
@@ -26,16 +26,19 @@ const props = defineProps({
     },
     modelValue: { // 添加 modelValue 以支持 v-model
         type: Number,
-        default: 0
+        default: 1
     },
 })
-
-
 
 const currentPage = ref(1)
 const currentList = ref([])
 
 onMounted(()=>{
+    init()
+})
+
+const init = ()=>{
+    currentPage.value = 1
     if(props.totalPages>10){
         currentList.value=[1,2,3,4,5]
     }else{
@@ -43,25 +46,26 @@ onMounted(()=>{
             currentList.value.push(i)
         }
     }
-})
+}
 
 const pre = (step=1) => {
     if(currentPage.value > step){
         currentPage.value -= step
         emit('update:modelValue', currentPage.value);
     }
-    if(props.totalPages>10){
+    if(props.totalPages > 10){
         refreshlist()
     }
     
 }
 
 const next = (step=1) => {
-    if(currentPage.value<props.totalPages+1-step){
+    console.log(props.totalPages)
+    if(currentPage.value < props.totalPages+1-step){
         currentPage.value += step
         emit('update:modelValue', currentPage.value);
     }
-    if(props.totalPages>10){
+    if(props.totalPages > 10){
         refreshlist()
     }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div style="position: fixed;top:90px">
+  <div v-if="false" style="position: fixed;top:90px">
     {{state.view}}{{state.scaleCount}}
     <input type="button" class="fill" value="清空" @click="clearAll"/>
     <input type="button" class="fill" value="重绘" @click="reDraw"/>
@@ -20,73 +20,46 @@
       <div class="liquid-glass"></div>
     </div>
     
+    <AuPainterToolsBar :position="position" v-model="state.tool" @changeSetting="preferences.modal_show = !preferences.modal_show"/>
+
   </div>
 
-    <div v-show="show" :class="{'edit-tools-box':true, 'active':editToolsActive || modal_show.setting_show}" ref="dragToolsBar" @pointerover="handleToolsBarFocus" @pointerleave="handleToolsBarOut">
 
-      <div :class="{'edit-tools-item':true,'active':state.tool == 'pencil'}" @click="getcanvastool('pencil')">
-        <au-icon name="RiPencilLine"  size="22"></au-icon>
-      </div>
-      <div :class="{'edit-tools-item':true,'active':state.tool == 'eraser'}" @click="getcanvastool('eraser')">
-        <au-icon name="RiEraserLine" size="22"></au-icon>
-      </div>
-      <div :class="{'edit-tools-item':true,'active':state.tool == 'move'}" @click="getcanvastool('move')">
-        <au-icon name="RiCursorLine" size="22"></au-icon>
-      </div>
-      <div class="divider-line"></div>
-      <div class="edit-tools-item" @click="modal_show.setting_show = !modal_show.setting_show">
-        <au-icon name="RiSettings2Line" size="22"></au-icon>
-      </div>
-      <div class="edit-tools-drag" @pointerdown="dragdown($event)"  @mouseup="dragup">
-        <au-icon style="user-select: none;" name="RiDraggable" size="20"></au-icon>
-      </div>
-    </div>
-
-    <my-modal v-model="modal_show.setting_show" :modeless="true" :modalKey="'setting_show'">
-      <div class="tools-setting-container">
-        <div class="content-items">
-          <label>画笔大小：</label>
-            
-          <au-slider v-model="penWidth" style="width: 150px;" :max="20"></au-slider>
-          {{penWidth}}
-        </div>
-        <div class="content-items">
-          <label>橡皮大小：</label>
-          
-          <au-slider v-model="eraserWidth" style="width: 150px;"></au-slider>{{eraserWidth}}
-        </div>
-        <div class="content-items">
-          <label>画笔颜色：</label>
-          <div v-for="color in colorList" :key="color" @click="penColor = color" class="color-item" :style="{backgroundColor:color,height: color==penColor ? '20px':'15px'}"></div>
-        </div>
-        <div class="content-items">
-          <label>仅触控笔：</label>
-          <au-switch v-model="mode" size="small"></au-switch>
-          {{mode ? '开' : '关' }}
-        </div>
-      </div>
-      
-    </my-modal>
+  
+  <AuPainterPreferences v-model="preferences"/>
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, onBeforeUnmount, nextTick,defineProps, toRefs} from 'vue'
+import { ref, reactive,  onMounted, onBeforeUnmount,defineProps} from 'vue'
+import AuPainterPreferences from './AuPainterPreferences'
+import AuPainterToolsBar from './AuPainterToolsBar'
 
-const props = defineProps({
+defineProps({
   show: {
     type: Boolean,
     default: true
   },
   width: Number,
   height: Number,
-  switch: Number
+  position: {
+    type: String,
+    default: "fixed"
+  }
+})
+
+const preferences = ref({
+  penWidth:5,
+  penColor:'#f00',
+  eraserWidth:40,
+  mode:false,
+  modal_show:false
 })
 
 
 // 响应式数据
 const state = reactive({
+  dpr:1,
   log: "",
-  mode: false,
   isDrawing: false,
   drawData: null,
   isScroll: 0,
@@ -107,20 +80,13 @@ const state = reactive({
   el: null,
   points: [],
   beginPoint: { x: 0, y: 0 },
-  penWidth: 5,
-  eraserWidth: 40,
-  penColor: '#f00',
   canvasWidth: 0,
   canvasHeight: 0,
   imgDataList: [],
-  modal_show: {
-    setting_show: false
-  },
   colorList: ['#000', '#f00', '#ffa500', '#ff0', '#90ee90', '#87ceeb', '#fff'],
-  dragToolsBar: null,
+  // dragToolsBar: null,
   disx: 0,
   disy: 0,
-  editToolsActive: false,
   pressTimer: null,
   pressTimerNum: 0,
 
@@ -144,37 +110,10 @@ const state = reactive({
 const canvas = ref(null)
 const canvasHistory = ref(null)
 const canvasBcg = ref(null)
-const dragToolsBar = ref(null)
+
 const canvasArea = ref(null)
 const toolM = ref(null)
 
-// const { modal_show } = toRefs(state)
-// 解构常用状态
-const { 
-  penColor,
-  penWidth,
-  eraserWidth,
-  // erasing,
-  mode,
-  editToolsActive,
-  colorList,
-  modal_show
-} = toRefs(state)
-
-// 监听器
-watch(() => props.switch, (newval, oldval) => {
-  changeCanvas(newval, oldval)
-  console.log(newval, oldval)
-})
-
-watch(() => props.show, (newval) => {
-  if (newval) {
-    resize()
-    document.body.classList.add('none-select')
-  } else {
-    document.body.classList.remove('none-select')
-  }
-})
 
 // 生命周期钩子
 onMounted(() => {
@@ -183,121 +122,59 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.body.classList.remove('none-select')
-  document.removeEventListener('pointermove', dragmove)
-  document.removeEventListener('pointerup', dragup)
   document.removeEventListener('pointermove', handlePointerMove)
   document.removeEventListener('pointerup', handlePointerUp)
 })
 
-// 方法
-const dragdown = (e) => {
-  if (!state.dragToolsBar) {
-    state.dragToolsBar = dragToolsBar.value
-    document.addEventListener('pointermove', dragmove)
-    document.addEventListener('pointerup', dragup)
-    state.disx = e.clientX - state.dragToolsBar.offsetLeft
-    state.disy = e.pageY - state.dragToolsBar.offsetTop
-    state.dragToolsBar.style.right = 'unset'
-    state.dragToolsBar.style.left = e.clientX - state.disx + 'px'
-    state.dragToolsBar.style.top = e.pageY - state.disy + 'px'
-  }
-}
 
-const dragmove = (e) => {
-  if (state.dragToolsBar) {
-    state.dragToolsBar.style.left = e.clientX - state.disx + 'px'
-    state.dragToolsBar.style.top = e.pageY - state.disy + 'px'
-  }
-}
 
-const dragup = () => {
-  state.dragToolsBar = null
-  document.removeEventListener('pointermove', dragmove)
-}
 
-const resize = (Imgdata = null) => {
-  const canvasEl = canvas.value
-  let imageData = null
-  if (Imgdata == null) {
-    imageData = state.context.getImageData(0, 0, canvasEl.width, canvasEl.height)
-  } else {
-    imageData = Imgdata
-  }
-
-  // 保存当前的绘图状态
-  const strokeStyle = state.context.strokeStyle
-  const fillStyle = state.context.fillStyle
-  const lineWidth = state.context.lineWidth
-  const font = state.context.font
-  const textAlign = state.context.textAlign
-  const textBaseline = state.context.textBaseline
-  const globalCompositeOperation = state.context.globalCompositeOperation
-  
-  canvasEl.width = canvas.value.clientWidth
-  canvasEl.height = canvas.value.clientHeight
-  state.canvasWidth = canvasEl.width
-  state.canvasHeight = canvasEl.height
-  // 清空并重置画布
-  state.context.clearRect(0, 0, canvasEl.width, canvasEl.height)
-  // 恢复绘图状态
-  state.context.strokeStyle = strokeStyle
-  state.context.fillStyle = fillStyle
-  state.context.lineWidth = lineWidth
-  state.context.font = font
-  state.context.textAlign = textAlign
-  state.context.textBaseline = textBaseline
-  state.context.globalCompositeOperation = globalCompositeOperation
-  if (imageData != "") {
-    // 恢复画布内容
-    state.context.putImageData(imageData, 0, 0)
-  }
-}
-
+// 初始化画板
 const init = () => {
   if (window.PointerEvent) {
     state.log = "Pointer events are supported."
   }
-  
+  state.dpr = window.devicePixelRatio || 1;
 
-  canvas.value.width = canvas.value.parentElement.clientWidth
-  canvas.value.height = canvas.value.parentElement.clientHeight
-  canvas.value.style.width = canvas.value.parentElement.clientWidth + "px"
-  canvas.value.style.height = canvas.value.parentElement.clientHeight + "px"
+  canvas.value.width = canvasArea.value.clientWidth * state.dpr
+  canvas.value.height = canvasArea.value.clientHeight * state.dpr
+  canvas.value.style.width = canvasArea.value.clientWidth + "px"
+  canvas.value.style.height = canvasArea.value.clientHeight + "px"
 
-  canvasHistory.value.width = canvasHistory.value.parentElement.clientWidth
-  canvasHistory.value.height = canvasHistory.value.parentElement.clientHeight
-  canvasHistory.value.style.width = canvasHistory.value.parentElement.clientWidth + "px"
-  canvasHistory.value.style.height = canvasHistory.value.parentElement.clientHeight + "px"
+  canvasHistory.value.width = canvasArea.value.clientWidth * state.dpr
+  canvasHistory.value.height = canvasArea.value.clientHeight * state.dpr
+  canvasHistory.value.style.width = canvasArea.value.clientWidth + "px"
+  canvasHistory.value.style.height = canvasArea.value.clientHeight + "px"
 
-  canvasBcg.value.width = canvasBcg.value.parentElement.clientWidth
-  canvasBcg.value.height = canvasBcg.value.parentElement.clientHeight
-  canvasBcg.value.style.width = canvasBcg.value.parentElement.clientWidth + "px"
-  canvasBcg.value.style.height = canvasBcg.value.parentElement.clientHeight + "px"
+  canvasBcg.value.width = canvasArea.value.clientWidth * state.dpr
+  canvasBcg.value.height = canvasArea.value.clientHeight * state.dpr
+  canvasBcg.value.style.width = canvasArea.value.clientWidth + "px"
+  canvasBcg.value.style.height = canvasArea.value.clientHeight + "px"
 
   //初始化背景层
   state.bcgContext = canvasBcg.value.getContext('2d')
+  state.bcgContext.scale(state.dpr,state.dpr)
   drawBackground()
 
   //初始化实时层
   state.context = canvas.value.getContext('2d')
-  // state.context.scale(2,2)
-  state.context.strokeStyle = state.penColor
+  state.context.scale(state.dpr,state.dpr)
+  state.context.strokeStyle = preferences.value.penColor
   state.context.lineCap = "round"
 
   //初始化历史层
   state.historyContext = canvasHistory.value.getContext('2d')
-  // state.historyContext.scale(2,2)
-  state.historyContext.strokeStyle = state.penColor
+  state.historyContext.scale(state.dpr,state.dpr)
+  state.historyContext.strokeStyle = preferences.value.penColor
   state.historyContext.lineCap = "round"
 
   //初始化view坐标
   state.view = {x:0,y:0,width:canvas.value.width,height:canvas.value.height}
 }
 
-// const switchmode = () => {
-//   state.mode = !state.mode
-// }
 
+
+//绘制点阵背景
 const drawBackground = (dotSize = 1,gridSize = 15) => {
   
     state.bcgContext.fillStyle = "#fff"
@@ -320,19 +197,19 @@ const drawBackground = (dotSize = 1,gridSize = 15) => {
         state.bcgContext.fill();
       }
     }
-  
-  
 }
 
 const handlePointerDown = (event) => {
-  if (state.dragToolsBar) return
   
   state.currentPointerType = event.pointerType
 
+  state.context.strokeStyle = preferences.value.penColor
+  state.historyContext.strokeStyle = preferences.value.penColor
+
   updateOffset()
 
-  if (state.mode == false && state.currentPointerType == 'pen') {
-    state.mode = true
+  if (preferences.value.mode == false && state.currentPointerType == 'pen') {
+    preferences.value.mode = true
     console.log(`检测到正在使用触控笔，开启"仅触控笔"模式，可在画板设置中关闭`)
   }
   
@@ -342,10 +219,16 @@ const handlePointerDown = (event) => {
   if(state.tool == 'move'){
     
     state.movingStart = {x:event.clientX,y: event.clientY}
+    state.context.scale(1/state.dpr,1/state.dpr)
     state.context.drawImage(canvasHistory.value,0,0)
+    state.context.scale(state.dpr,state.dpr)
     state.historyShow = false
+
   }else if(state.tool == 'eraser'){
-    const size = state.eraserWidth/state.scaleCount
+
+    const size = preferences.value.eraserWidth/state.scaleCount
+    
+    // console.log(state.historyContext.lineWidth)
     const radius = size/2
     const x = event.clientX - state.offsetLeft - radius
     const y = event.clientY - state.offsetTop - radius
@@ -361,15 +244,21 @@ const handlePointerDown = (event) => {
       y: Math.round((event.clientY - state.offsetTop + state.view.y)*state.scaleCount) })
     state.beginPoint = state.erasingPoints[0]
     state.realErasing = true
+    state.context.scale(1/state.dpr,1/state.dpr)
     state.context.drawImage(canvasHistory.value,0,0)
+    state.context.scale(state.dpr,state.dpr)
     state.historyContext.clearRect(0,0,canvasHistory.value.width,canvasHistory.value.height)
+    state.context.lineWidth = size
+    console.log(state.context.lineWidth)
     state.context.globalCompositeOperation = 'destination-out'
     // console.log(state.allPoints)
   }
   else {
     //原来的双指判断等逻辑
-    if (state.mode == true && state.currentPointerType === 'pen') {
-      state.scrolltop = canvas.value.parentElement.scrollTop
+    state.context.lineWidth = preferences.value.penWidth/state.scaleCount
+
+    if (preferences.value.mode == true && state.currentPointerType === 'pen') {
+      state.scrolltop = canvasArea.value.scrollTop
       state.isDrawing = true
       document.addEventListener('pointermove', handlePointerMove)
       document.addEventListener('pointerup', handlePointerUp)
@@ -378,12 +267,12 @@ const handlePointerDown = (event) => {
         { x: Math.round((event.clientX - state.offsetLeft + state.view.x)*state.scaleCount), 
         y: Math.round((event.clientY - state.offsetTop + state.view.y)*state.scaleCount) })
       state.beginPoint = state.points[0]
-    } else if (state.mode == true && state.currentPointerType === 'touch') {
+    } else if (preferences.value.mode == true && state.currentPointerType === 'touch') {
       state.isScroll = id
       state.startY = event.clientY
-      state.scrolltop = canvas.value.parentElement.scrollTop
-    } else if (state.mode === false) {
-      state.scrolltop = canvas.value.parentElement.scrollTop
+      state.scrolltop = canvasArea.value.scrollTop
+    } else if (preferences.value.mode === false) {
+      state.scrolltop = canvasArea.value.scrollTop
       if (Object.keys(state.multiLastPt).length == 2) {
         state.isDrawing = false
         state.isScroll = id
@@ -403,14 +292,10 @@ const handlePointerDown = (event) => {
 }
 
 const drawLine = (startp, endp) => {
-
   const ctx = state.context;
-
   ctx.beginPath()
   ctx.moveTo((startp.x)/state.scaleCount - state.view.x, (startp.y)/state.scaleCount - state.view.y)
   ctx.lineTo((endp.x)/state.scaleCount - state.view.x, (endp.y)/state.scaleCount - state.view.y)
-  ctx.strokeStyle = state.penColor
-  ctx.lineWidth = state.erasing ? state.eraserWidth/state.scaleCount : state.penWidth/state.scaleCount  
   ctx.stroke()
   ctx.closePath()
 }
@@ -423,7 +308,7 @@ const updateOffset = () => {
 }
 
 const handlePointerMove = (event) => {
-  if (state.dragToolsBar) return
+  // if (state.dragToolsBar) return
   if (state.movingStart){
     const offsetX = event.clientX - state.movingStart.x
     const offsetY = event.clientY - state.movingStart.y
@@ -434,8 +319,8 @@ const handlePointerMove = (event) => {
     canvas.value.style.left = offsetX + 'px'
   }else if(state.realErasing){
     // console.log("moving")
-    const size = state.eraserWidth/state.scaleCount
-    const radius = size/2
+    // const size = preferences.value.eraserWidth/state.scaleCount
+    const radius = state.context.lineWidth/2
     const x = event.clientX - state.offsetLeft - radius
     const y = event.clientY - state.offsetTop - radius
     toolM.value.style.left = `${x}px`;
@@ -448,21 +333,23 @@ const handlePointerMove = (event) => {
     drawLine(state.beginPoint,point)
     state.beginPoint = point
 
-    // eraseStrokes(point.x,point.y,state.eraserWidth/state.scaleCount)
+    // eraseStrokes(point.x,point.y,preferences.value.eraserWidth/state.scaleCount)
   }else{
     //之前的逻辑
     const id = event.pointerId
     if (state.isDrawing && state.multiLastPt[id]) {
-      if ((state.mode == true && state.currentPointerType === 'pen') || state.mode === false) {
-        if (!state.erasing) {
-          if (state.currentPointerType == 'pen') {
-            state.context.lineWidth = event.pressure * state.penWidth/state.scaleCount
-          } else {
-            state.context.lineWidth = state.penWidth/state.scaleCount
-          }
-        } else {
-          state.historyContext.lineWidth = state.eraserWidth/state.scaleCount
-        }
+      if ((preferences.value.mode == true && state.currentPointerType === 'pen') || preferences.value.mode === false) {
+
+        // 笔压力的逻辑
+        // if (!state.erasing) {
+        //   if (state.currentPointerType == 'pen') {
+        //     state.context.lineWidth = event.pressure * preferences.value.penWidth/state.scaleCount
+        //   } else {
+        //     state.context.lineWidth = preferences.value.penWidth/state.scaleCount
+        //   }
+        // } else {
+        //   state.historyContext.lineWidth = preferences.value.eraserWidth/state.scaleCount
+        // }
         
         const endp = { 
           x: Math.round((event.clientX - state.offsetLeft + state.view.x)*state.scaleCount), 
@@ -473,7 +360,7 @@ const handlePointerMove = (event) => {
       }
     } else if (state.isScroll == id) {
       const y = event.clientY - state.startY
-      canvas.value.parentElement.scrollTop = state.scrolltop - y
+      canvasArea.value.scrollTop = state.scrolltop - y
     }
   }
   
@@ -485,8 +372,8 @@ const handlePointerMove = (event) => {
 const quadraticLine = (points=null) => {
 
   const pt = points ? points.points : simplifyPoints(state.points,1)
-  const cur_color = points ? points.color : state.penColor
-  const cur_line_width = points ? points.width : state.penWidth
+  const cur_color = points ? points.color : preferences.value.penColor
+  const cur_line_width = points ? points.width : preferences.value.penWidth
 
   const temp = state.historyContext.globalCompositeOperation
   // if(points != null){
@@ -539,7 +426,7 @@ const quadraticLine = (points=null) => {
   //   state.historyContext.arc(
   //     (pt[i].x)/state.scaleCount - state.view.x,
   //     (pt[i].y)/state.scaleCount - state.view.y, 
-  //     state.penWidth/2, 0, 
+  //     preferences.value.penWidth/2, 0, 
   //     Math.PI * 2); // 绘制圆点
   //   state.historyContext.fill();
   //   state.historyContext.closePath()
@@ -549,7 +436,7 @@ const quadraticLine = (points=null) => {
 
 
 const handlePointerUp = (event) => {
-  if (state.dragToolsBar) return
+  // if (state.dragToolsBar) return
   
   const id = event.pointerId
   if (state.movingStart){
@@ -564,7 +451,7 @@ const handlePointerUp = (event) => {
   }else if(state.realErasing){
     state.realErasing = false
     state.erasingPoints.forEach(point => {
-      eraseStrokes(point.x,point.y,state.eraserWidth/2+1)
+      eraseStrokes(point.x,point.y,preferences.value.eraserWidth/2+1)
     })
     state.context.globalCompositeOperation = 'source-over'
     clearAll()
@@ -575,7 +462,7 @@ const handlePointerUp = (event) => {
     //   state.historyContext.arc(
     //     (pt[i].x)/state.scaleCount - state.view.x,
     //     (pt[i].y)/state.scaleCount - state.view.y, 
-    //     state.eraserWidth/state.scaleCount/2, 0, 
+    //     preferences.value.eraserWidth/state.scaleCount/2, 0, 
     //     Math.PI * 2); // 绘制圆点
     //   state.historyContext.lineWidth = 1
     //   state.historyContext.stroke();
@@ -608,7 +495,7 @@ const handlePointerUp = (event) => {
           tool:0, //0橡皮，1画笔
           points:simplifyPoints(state.points,1),
           color:"0",
-          width:state.eraserWidth
+          width:preferences.value.eraserWidth
         })
       }
     }
@@ -687,50 +574,19 @@ const reDraw = () => {
   })
 }
 
-const getcanvastool = (tool) => {
-  state.tool = tool
-  if (tool == 'pencil') {
-    state.historyContext.globalCompositeOperation = 'source-over'
-    state.erasing = false
-  } else if (tool == "eraser") {
-    // state.historyContext.globalCompositeOperation = 'destination-out'
-    state.erasing = true
-  }
-}
 
-const handleToolsBarFocus = () => {
-  // console.log("---------focus")
-  state.editToolsActive = true
-  state.pressTimerNum = 0
-  clearInterval(state.pressTimer)
-  state.pressTimer = null
-}
 
-const handleToolsBarOut = () => {
-  state.pressTimerNum = 0
-  clearInterval(state.pressTimer)
-  state.pressTimer = null
-  state.pressTimer = setInterval(() => {
-    state.pressTimerNum += 1
-    if (state.pressTimerNum >= 5) {
-      state.editToolsActive = false
-      state.pressTimerNum = 0
-      clearInterval(state.pressTimer)
-      state.pressTimer = null
-    }
-  }, 1000)
-}
 
-const changeCanvas = (newval, oldval) => {
-  const canvasEl = canvas.value
-  let imageData = state.context.getImageData(0, 0, canvasEl.width, canvasEl.height)
-  state.imgDataList[oldval] = imageData
-  imageData = state.imgDataList[newval] ? state.imgDataList[newval] : ""
+// const changeCanvas = (newval, oldval) => {
+//   const canvasEl = canvas.value
+//   let imageData = state.context.getImageData(0, 0, canvasEl.width, canvasEl.height)
+//   state.imgDataList[oldval] = imageData
+//   imageData = state.imgDataList[newval] ? state.imgDataList[newval] : ""
   
-  nextTick(() => {
-    resize(imageData)
-  })
-}
+//   nextTick(() => {
+//     resize(imageData)
+//   })
+// }
 
 
 const zoomIn = () => {
@@ -927,80 +783,7 @@ const isPointInCircle = (point, center, radius) => {
     z-index: 988;
   }
 
-  .edit-tools-item, .edit-tools-drag {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 2px;
-    cursor: pointer;
-  }
-
-  .edit-tools-drag {
-    width: unset;
-    opacity: 0.5;
-  }
-
   
-
-
-  .edit-tools-item img{
-    width: 25px;
-    -webkit-user-drag: none;
-  }
-
-  .edit-tools-item:hover{
-    background: var(--button-highlight);
-
-  }
-
-  .edit-tools-item.active {
-    background: #ffc848;
-    box-shadow: var(--inset-boxShadow-yellow);
-    color: #363636;
-  }
-  
-  .content-items{
-    margin: 10px 0;
-    display: flex;
-    align-items: flex-end
-  }
-
-  .color-item {
-    box-sizing: border-box;
-    margin: 0 2px;
-    border: 2px solid;
-    width: 20px;
-    transition: height 0.1s ease;
-  }
-
-  /* 工具栏2.0样式 */
-  .edit-tools-box {
-    display: flex;
-    position: fixed;
-    right:20px;
-    border-radius: 14px;
-    border: var(--box-border);
-    z-index: 999;
-    background: var(--box-bgc);
-    padding: 6px 4px;
-    box-shadow: unset;
-    opacity: 0.5;
-    touch-action: none;
-  }
-
-  .edit-tools-box.active {
-    opacity: 1;
-    box-shadow: var(--box-shadow);
-  }
-
-  /*.edit-tools-box:hover {
-    box-shadow: var(--box-shadow);
-    opacity: 1;
-  }*/
 
   .divider-line {
     width: 0;
@@ -1012,6 +795,8 @@ const isPointInCircle = (point, center, radius) => {
     position: absolute;
     /* border: 1px solid #555; */
     border-radius: 50%;
+    z-index: 8;
+    cursor: none;
   }
 
   .liquid-glass {

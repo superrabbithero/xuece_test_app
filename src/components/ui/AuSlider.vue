@@ -1,5 +1,5 @@
 <template>
-  <div class="au-slider-container">
+  <div class="au-slider-container" ref="sliderContainer">
     <div class="au-slider-track-box"  @pointerdown="handleTrackStart">
       <div class="au-slider-track" ref="track">
         <div class="au-slider-runnable-track" ref="runnable" :style="{width:`${progress}%`}"></div>
@@ -10,137 +10,135 @@
   </div>
 </template>
 
-<script>
-import { ref, onMounted, onBeforeUnmount ,computed } from 'vue';
+<script setup>
+import { ref, onMounted, onBeforeUnmount ,computed,defineProps,defineEmits  } from 'vue';
 
-export default {
-  props: {
-    modelValue: {
-      type: Number,
-      required: true
-    },
-    min: {
-      type: Number,
-      default: 0
-    },
-    max: {
-      type: Number,
-      default: 100
-    },
-    step: {
-      type: Number,
-      default: 1
-    },
-    vertical: {
-      type: Boolean,
-      default: false
-    }
+
+const props = defineProps(
+  {
+  modelValue: {
+    type: Number,
+    required: true
   },
-  setup(props, {emit}) {
-    const track = ref(null);
-    const thumb = ref(null);
-    let thumbDrag = false
-    const runnable = ref(null);
-    const disx = ref(0);
-    const disy = ref(0);
-    const modelValue = ref(props.modelValue);
-    console.log(`setup:${modelValue.value}`)
-    const step_px = ref(0)
-    const leftValue = ref(0)
+  min: {
+    type: Number,
+    default: 0
+  },
+  max: {
+    type: Number,
+    default: 100
+  },
+  step: {
+    type: Number,
+    default: 1
+  },
+  vertical: {
+    type: Boolean,
+    default: false
+  }
+}) 
+  
+const emit = defineEmits(['update:modelValue'])
 
-    const progress = computed(() => {
-      // 当前值对应的百分比进度
-      return ((props.modelValue - props.min) / (props.max - props.min)) * 100;
-    });
+const track = ref(null);
+const thumb = ref(null);
+const sliderContainer = ref(null);
+let thumbDrag = false
+const runnable = ref(null);
+const disx = ref(0);
+const disy = ref(0);
+const modelValue = ref(props.modelValue);
+// console.log(`setup:${modelValue.value}`)
+const step_px = ref(0)
+const leftValue = ref(0)
 
-    onMounted(() => {
-      track.value = document.querySelector('.au-slider-track');
-      step_px.value = track.value.clientWidth/props.max*props.step;
-    });
+const progress = computed(() => {
+  // 当前值对应的百分比进度
+  return ((props.modelValue - props.min) / (props.max - props.min)) * 100;
+});
 
-    onBeforeUnmount(() => {
-      document.removeEventListener('pointermove', handleThumbMove);
-      document.removeEventListener('pointerup', handleThumbUp);
-    });
+onMounted(() => {
+  track.value = document.querySelector('.au-slider-track');
+  step_px.value = track.value.clientWidth/props.max*props.step;
+  // console.log('slider width:',sliderContainer)
+});
 
+onBeforeUnmount(() => {
+  document.removeEventListener('pointermove', handleThumbMove);
+  document.removeEventListener('pointerup', handleThumbUp);
+});
+
+
+
+const handleThumbStart = (e) => {
+  e.preventDefault();
+  if (!thumbDrag) {
+    thumbDrag = true
+    disx.value = e.pageX - thumb.value.offsetLeft;
+    disy.value = e.pageY - thumb.value.offsetTop;
     
-
-    const handleThumbStart = (e) => {
-      e.preventDefault();
-      if (!thumbDrag) {
-        thumbDrag = true
-        disx.value = e.pageX - thumb.value.offsetLeft;
-        disy.value = e.pageY - thumb.value.offsetTop;
-        
-        document.addEventListener('pointermove', handleThumbMove);
-        document.addEventListener('pointerup', handleThumbUp);
-      }
-    };
-
-    const handleTrackStart = (e) => {
-      console.log(`handleTrackStart-1:${modelValue.value}`)
-      if(!thumbDrag){
-        thumbDrag = true
-      
-        console.log(`left_steped = Math.floor(${e.offsetX}/${step_px.value})*${step_px.value}`)
-        const left_steped = Math.floor(e.offsetX/step_px.value)*step_px.value
-        console.log(`left_steped:${left_steped}`)
-        const left = Math.min(Math.max(left_steped, 0), thumb.value.parentElement.clientWidth);
-
-        // runnable.value.style.width = `${left}px`;
-        // thumb.value.style.left = `${left}px`;
-        console.log(`handleTrackStart-2:${modelValue.value}`)
-        console.log(`Math.ceil(${props.min} + ${left}/${step_px.value})*${props.step};`)
-        modelValue.value = Math.ceil(props.min + left/step_px.value)*props.step;
-        console.log(`handleTrackStart-3:${modelValue.value}`)
-        leftValue.value = left
-        emit('update:modelValue', modelValue.value)
-
-        disx.value = e.pageX - thumb.value.offsetLeft;
-        disy.value = e.pageY - thumb.value.offsetTop;
-
-
-        document.addEventListener('pointermove', handleThumbMove);
-        document.addEventListener('pointerup', handleThumbUp);
-      }
-    };
-
-    const handleThumbMove = (e) => {
-      e.preventDefault();
-      if (thumbDrag) {
-        if (props.vertical) {
-          const top = Math.min(Math.max(e.pageY - disy.value, 0), thumb.value.parentElement.clientHeight);
-          runnable.value.style.height = `${top}px`;
-          thumb.value.style.top = `${top}px`;
-        } else {
-          const left_steped = Math.floor((e.pageX - disx.value)/step_px.value)*step_px.value
-          const left = Math.min(Math.max(left_steped, 0), thumb.value.parentElement.clientWidth);
-          
-          // runnable.value.style.width = `${left}px`;
-          // thumb.value.style.left = `${left}px`;
-          leftValue.value = left
-          modelValue.value = Math.ceil(props.min + left/step_px.value)*props.step;
-          emit('update:modelValue', modelValue.value)
-        }
-      }
-    };
-
-    const handleThumbUp = () => {
-      thumbDrag = false;
-      document.removeEventListener('pointermove', handleThumbMove);
-      document.removeEventListener('pointerup', handleThumbUp);
-    };
-
-    return {
-      progress,
-      thumb,
-      runnable,
-      handleTrackStart,
-      handleThumbStart,
-      leftValue
-    };
+    document.addEventListener('pointermove', handleThumbMove);
+    document.addEventListener('pointerup', handleThumbUp);
   }
 };
+
+const handleTrackStart = (e) => {
+  // console.log(`handleTrackStart-1:${modelValue.value}`)
+  if(!thumbDrag){
+    thumbDrag = true
+  
+    // console.log(`left_steped = Math.floor(${e.offsetX}/${step_px.value})*${step_px.value}`)
+    const left_steped = Math.floor(e.offsetX/step_px.value)*step_px.value
+    // console.log(`left_steped:${left_steped}`)
+    // console.log('slider width:',sliderContainer)
+    const left = Math.min(Math.max(left_steped, 0), sliderContainer.value.clientWidth);
+
+    // runnable.value.style.width = `${left}px`;
+    // thumb.value.style.left = `${left}px`;
+    // console.log(`handleTrackStart-2:${modelValue.value}`)
+    // console.log(`Math.ceil(${props.min} + ${left}/${step_px.value})*${props.step};`)
+    modelValue.value = Math.ceil(props.min + left/step_px.value)*props.step;
+    // console.log(`handleTrackStart-3:${modelValue.value}`)
+    leftValue.value = left
+    emit('update:modelValue', modelValue.value)
+
+    disx.value = e.pageX - thumb.value.offsetLeft;
+    disy.value = e.pageY - thumb.value.offsetTop;
+
+
+    document.addEventListener('pointermove', handleThumbMove);
+    document.addEventListener('pointerup', handleThumbUp);
+  }
+};
+
+const handleThumbMove = (e) => {
+  // console.log('slider width:',sliderContainer.value)
+  e.preventDefault();
+  if (thumbDrag) {
+    if (props.vertical) {
+      const top = Math.min(Math.max(e.pageY - disy.value, 0), sliderContainer.value.clientHeight);
+      runnable.value.style.height = `${top}px`;
+      thumb.value.style.top = `${top}px`;
+    } else {
+      const left_steped = Math.floor((e.pageX - disx.value)/step_px.value)*step_px.value
+      const left = Math.min(Math.max(left_steped, 0), sliderContainer.value.clientWidth);
+      
+      // runnable.value.style.width = `${left}px`;
+      // thumb.value.style.left = `${left}px`;
+      leftValue.value = left
+      modelValue.value = Math.ceil(props.min + left/step_px.value)*props.step;
+      emit('update:modelValue', modelValue.value)
+    }
+  }
+};
+
+const handleThumbUp = () => {
+  thumbDrag = false;
+  document.removeEventListener('pointermove', handleThumbMove);
+  document.removeEventListener('pointerup', handleThumbUp);
+};
+
+
 </script>
 
 <style scoped>

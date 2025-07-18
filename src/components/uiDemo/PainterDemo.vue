@@ -7,7 +7,7 @@
             </div>
             <div class="component-demo_view_content">
                 <div class="show-box">
-                    <au-painter ></au-painter>
+                    <au-painter :position="config.placementList[config.placementIndex]"></au-painter>
                 </div>
             </div>
         </div>
@@ -18,7 +18,10 @@
                 配置
             </div>
             <div class="component-demo_config_content">
-                
+                <label>
+                    <span>位置:</span>
+                    <au-select :dataList="config.placementList" v-model="config.placementIndex"/>
+                </label>
             </div>
         </div>
         <div v-show="false" class="component-demo_code">
@@ -28,8 +31,25 @@
 </template>
 
 <script setup>
-// import {ref} from 'vue'
-
+import {ref} from 'vue'
+const config = ref({
+    placementList:[
+        "fixed",
+        "top",
+        // "top-left",
+        // "top-right",
+        "bottom"
+        // "bottom-left",
+        // "bottom-right",
+        // "left",
+        // "left-top",
+        // "left-bottom",
+        // "right",
+        // "right-top",
+        // "right-bottom"
+        ],
+    placementIndex:0
+})
 
 
 </script>

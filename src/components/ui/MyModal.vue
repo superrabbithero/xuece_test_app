@@ -1,7 +1,7 @@
 <template>
   <div class="overlay" v-show="modelValue && !modeless"></div>
   <transition name="modal-slide">
-    <div class="modal" :style="{width:`${width}px`}" ref="modal" v-if="modelValue">     
+    <div class="modal" :style="{width:modal_width}" ref="modal" v-if="modelValue">     
       <div :class="{'modal-bar':true,'draged':dragable}" @mousedown="dragdown($event)"  @mouseup="dragup">
         <div class="modal-close" @click="closeModal">
         </div>
@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineProps, defineEmits } from 'vue';
+import { ref, watch, defineProps, defineEmits,computed } from 'vue';
 
 const emit = defineEmits(['update:modelValue']);
 
@@ -47,7 +47,7 @@ const props = defineProps({
     default: true
   },
   width: {
-    type: Number,
+    type: [Number,String],
     default : 400
   },
   confirmTitle: {
@@ -57,6 +57,12 @@ const props = defineProps({
   onFunction:{
     type:Function
   }
+})
+
+const modal_width = computed(()=>{
+  return (typeof props.width === 'number')
+  ?  `${props.width}px`
+  : props.width
 })
 
 // const { modelValue } = toRefs(props);
@@ -119,7 +125,7 @@ const closeModal = () => {
 
 <style scoped>
 .overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   bottom: 0;

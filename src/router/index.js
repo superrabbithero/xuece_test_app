@@ -35,7 +35,6 @@ const routes = [
         path: '/login',
         name: '登录',
         component: () => import("@/components/LoginPage"),
-        props:true,
         meta:{
             title: '登录',
             footerHidden: true,
@@ -46,7 +45,6 @@ const routes = [
         path: '/AiDemo',
         name: 'AI工具箱',
         component: () => import("@/components/AiDemo"),
-        props:true,
         meta:{
             title: 'AI工具箱'
         }
@@ -55,9 +53,18 @@ const routes = [
         path: '/components',
         name: 'Au-Design',
         component: () => import("@/components/ComponentsView"),
-        props:true,
         meta:{
             title: 'Au-Design'
+        }
+    },
+    {
+        path: '/board',
+        name: 'Board',
+        component: () => import("@/components/ToolBoard"),
+        meta:{
+            title: '白板工具',
+            footerHidden: true,
+            headerHidden: true
         }
     }
 ]
