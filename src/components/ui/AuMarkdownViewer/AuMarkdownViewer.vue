@@ -1,5 +1,5 @@
 <template>
-  <div v-html="parsedMarkdown"></div>
+  <div class="markdown-body" v-html="parsedMarkdown"></div>
 </template>
 
 <script setup>
@@ -7,6 +7,7 @@ import {ref, computed, defineProps, onMounted} from 'vue';
 import { Marked } from 'marked';
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
+// import 'highlight.js/styles/dark.css'
 
 
 const marked = new Marked(
@@ -72,5 +73,6 @@ const parsedMarkdown = computed(() => {
 </script>
 
 <style scoped>
-@import "./markdown.css"
+@import "./markdown.css";
+@import "./github-markdown.css";
 </style>
