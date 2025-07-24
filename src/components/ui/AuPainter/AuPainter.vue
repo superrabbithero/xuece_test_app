@@ -209,7 +209,8 @@ const handlePointerDown = (event) => {
   updateOffset()
 
   if (preferences.value.mode == false && state.currentPointerType == 'pen') {
-    preferences.value.mode = true
+    // preferences.value.mode = true
+
     console.log(`检测到正在使用触控笔，开启"仅触控笔"模式，可在画板设置中关闭`)
   }
   
@@ -268,16 +269,19 @@ const handlePointerDown = (event) => {
         y: Math.round((event.clientY - state.offsetTop + state.view.y)*state.scaleCount) })
       state.beginPoint = state.points[0]
     } else if (preferences.value.mode == true && state.currentPointerType === 'touch') {
-      state.isScroll = id
-      state.startY = event.clientY
-      state.scrolltop = canvasArea.value.scrollTop
+      // state.isScroll = id
+      // state.startY = event.clientY
+      // state.scrolltop = canvasArea.value.scrollTop
+      console.log('应该是单指移动逻辑')
     } else if (preferences.value.mode === false) {
-      state.scrolltop = canvasArea.value.scrollTop
+      // state.scrolltop = canvasArea.value.scrollTop
       if (Object.keys(state.multiLastPt).length == 2) {
+        console.log('双指逻辑')
         state.isDrawing = false
         state.isScroll = id
         state.startY = event.clientY
       } else if (Object.keys(state.multiLastPt).length == 1) {
+        // 单指绘画
         state.isDrawing = true
         document.addEventListener('pointermove', handlePointerMove)
         document.addEventListener('pointerup', handlePointerUp)
@@ -359,8 +363,9 @@ const handlePointerMove = (event) => {
         state.beginPoint = endp
       }
     } else if (state.isScroll == id) {
-      const y = event.clientY - state.startY
-      canvasArea.value.scrollTop = state.scrolltop - y
+      // const y = event.clientY - state.startY
+      // canvasArea.value.scrollTop = state.scrolltop - y
+      console.log(state.isScroll)
     }
   }
   
