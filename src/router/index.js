@@ -66,7 +66,16 @@ const routes = [
             footerHidden: true,
             headerHidden: true
         }
-    }
+    },
+    {
+        path: '/post/:id',
+        name: '文章',
+        component: () => import("@/components/PostPage"),
+        props:true,
+        meta:{
+            title: '文章'
+        }
+    },
 ]
 
 const router = createRouter({
