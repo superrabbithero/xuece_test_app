@@ -3,12 +3,14 @@
 </template>
 
 <script setup>
-import {ref, computed, defineProps, onMounted} from 'vue';
+import {ref, computed, defineProps, onMounted, defineEmits} from 'vue';
 import { Marked } from 'marked';
 import { markedHighlight } from "marked-highlight";
 import hljs from 'highlight.js';
-// import 'highlight.js/styles/dark.css'
 
+import { gfmHeadingId, getHeadingList } from "marked-gfm-heading-id";
+
+const emit = defineEmits(['update-headings']);
 
 const marked = new Marked(
   markedHighlight({
@@ -20,6 +22,23 @@ const marked = new Marked(
     }
   })
 );
+
+
+// 使用标题id生成插件
+const options = {
+    prefix: "my-prefix-",
+};
+
+marked.use(gfmHeadingId(options),{
+    hooks:{
+        postprocess(html) {
+            const headings = getHeadingList();
+            emit('update-headings', headings);
+            return `${html}`
+        }
+    }
+});
+
 const props = defineProps({
     content:{
         type:String,
