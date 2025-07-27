@@ -76,6 +76,16 @@ const routes = [
             title: '文章'
         }
     },
+    {
+        path: '/post/editor/:id',
+        name: '编辑文章',
+        component: () => import("@/components/MarkdownEditor"),
+        props:true,
+        meta:{
+            title: '编辑文章',
+            footerHidden: true
+        }
+    }
 ]
 
 const router = createRouter({
