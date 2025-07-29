@@ -1,5 +1,7 @@
 <template>
   <div class="markdown-body" v-html="parsedMarkdown"></div>
+  {{content}}
+  {{parsedMarkdown}}
 </template>
 
 <script setup>

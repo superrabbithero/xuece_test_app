@@ -1,8 +1,11 @@
  
 <template>
     <!-- 指定一个容器 -->
-    <div class="vditor-reset">
+    <div v-show="useVditor" class="vditor-reset">
         <div id="vditor" ></div>
+    </div>
+    <div v-show="!useVditor" class="container left">
+        <au-md-editor/>
     </div>
 </template>
 
@@ -155,6 +158,10 @@ const changeTheme = () => {
   )
   
 } 
+
+// 自己做不用三方库
+
+const useVditor = false
  
 </script>
 
