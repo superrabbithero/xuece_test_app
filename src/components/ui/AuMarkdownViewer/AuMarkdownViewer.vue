@@ -1,7 +1,5 @@
 <template>
   <div class="markdown-body" v-html="parsedMarkdown"></div>
-  {{content}}
-  {{parsedMarkdown}}
 </template>
 
 <script setup>
@@ -48,7 +46,9 @@ const props = defineProps({
     }
 });
 
-const mdContent = ref(props.content)
+const mdContent = computed(()=>{
+    return props.content}
+)
 
 const isValidUrl = (string) => {
     try{
@@ -84,11 +84,11 @@ const init = async () => {
 }
 
 const parsedMarkdown = computed(() => {
-    return marked.parse(
-        isValidUrl(mdContent.value) 
+    const content = isValidUrl(mdContent.value) 
             ? remoteMarkdownText.value 
             : mdContent.value || ''
-    );
+
+    return marked.parse(content)
 });
 
 </script>
