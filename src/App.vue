@@ -149,10 +149,10 @@ const closemenu = (e) => {
 }
 
 const changeStyle = () => {
-  isDark.value = !isDark.value
-  proxy.$constants.DARK = isDark.value // 更新全局状态
-  localStorage.setItem('isDark', isDark.value)
-  document.body.classList.toggle('dark', isDark.value)
+  // isDark.value = !isDark.value
+  proxy.$constants.DARK = !proxy.$constants.DARK // 更新全局状态
+  localStorage.setItem('isDark', proxy.$constants.DARK)
+  document.body.classList.toggle('dark', proxy.$constants.DARK)
 }
 </script>
 

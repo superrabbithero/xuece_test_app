@@ -131,6 +131,15 @@ img {
     max-width: 100%;
 }
 
+/*全屏的布局*/
+.full-screen-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
 .container {
     margin: 10px 0;
     padding: 10px 20px ;
@@ -302,6 +311,7 @@ body > * {
     background-color: var(--scrollbar-thumb-bgc);
     border-radius: 5px;
     background-clip: padding-box;
+    cursor: default;
 }
 
 /* 滚动条两端按钮 */
@@ -1371,3 +1381,4 @@ label {
     opacity: 0;
   }
 }
+

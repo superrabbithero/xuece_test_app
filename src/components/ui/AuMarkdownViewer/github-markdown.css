@@ -1,4 +1,7 @@
 .markdown-body {
+  flex-shrink: 0;
+  height: auto;
+  box-sizing: border-box;
   width: 100%;
   -ms-text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;

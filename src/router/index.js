@@ -83,7 +83,8 @@ const routes = [
         props:true,
         meta:{
             title: '编辑文章',
-            footerHidden: true
+            footerHidden: true,
+            headerHidden: true
         }
     }
 ]
