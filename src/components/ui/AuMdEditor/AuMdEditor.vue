@@ -28,7 +28,20 @@
     </div>
     <div class="editor-area">
       <div class="editor" v-show="editorViewer != 2 ">
-        <textarea ref="myTextarea" v-model="mdText"></textarea>
+        <textarea ref="myTextarea" v-model="mdText" v-show="false"></textarea>
+        <div contenteditable="true" style="outline: none;" 
+          @keyup="editorAreaKeyup"
+          @pointerup="editorAreaPointerup">
+          <div class="text-line" 
+            v-for="(line,index) in textLines" 
+            :id="`line-${index}`" 
+            :key="index" 
+            @input="handleInput(event, index)" 
+          >{{ line }}</div>
+        </div>
+        
+        <div class="text-line-position">{{ `行 ${caretPosition.y + 1}, 列 ${caretPosition.x + 1}` }}</div>
+        <div class="text-line-position">{{ selectRange }}</div>
       </div>
       <div class="preview" v-if="editorViewer != 0">
         <au-markdown-viewer :content="mdText"
@@ -44,9 +57,49 @@ import { useRouter } from 'vue-router';
 import {ref, defineProps, onMounted, getCurrentInstance, nextTick} from 'vue';
 const { proxy } = getCurrentInstance()
 
+//编辑器相关变量
+const textLines = ref(['abcdefgwerwerwer','hijklmn'])
+const caretPosition = ref({y:1,x:1}) 
+
+//编辑器每行的input事件
+const handleInput = (event,index) => {
+  if(textLines.value[index] != null){
+    const selection = window.getSelection()
+    console.log(selection.focusOffset)
+  }
+}
+
+const editorAreaKeyup = (event) => {
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    const selection = window.getSelection();
+    caretPosition.value.x = selection.focusOffset
+    caretPosition.value.y = Number(selection.focusNode.parentNode.id.substring(5))
+  }
+}
+
+
+const selectRange = ref({
+  start:[-1,-1], 
+  end:[-1,-1],
+  backward:false
+})
+
+// const selecting = ref(false)
+
+//获得光标的坐标
+const editorAreaPointerup = () => {
+  const selection = window.getSelection();
+  caretPosition.value.x = selection.focusOffset
+  caretPosition.value.y = Number(selection.focusNode.parentNode.id.substring(5))
+  selectRange.value.start = [Number(selection.anchorNode.parentNode.id.substring(5)),selection.anchorOffset]
+  selectRange.value.end = [caretPosition.value.y,caretPosition.value.x]
+  selectRange.value.backward = selection.direction == 'backward'
+}
+
+
+
+
 const myTextarea = ref(null)
-
-
 
 const props = defineProps({
   fileName:{
@@ -56,7 +109,7 @@ const props = defineProps({
 })
 
 //控制预览模式
-const editorViewer = ref(0) //仅编辑，编辑&预览，仅预览 0，1，2
+const editorViewer = ref(1) //仅编辑，编辑&预览，仅预览 0，1，2
 const changeViewer = ()=>{
   editorViewer.value = (editorViewer.value + 1 )%3
 }
@@ -96,6 +149,12 @@ const insertText = (content, selectRange=null) => { //工具方法,在光标处�
     textarea.focus();
   });
 };
+
+// const insertTextPerLine = (content) => {
+//   const { selectionStart, selectionEnd, value } = myTextarea.value
+//   const selectContent = mdText.value.substring(startPos,endPos)
+
+// }
 //检查是否选中整段或多段文字
 // function isWholeParagraphSelected(textarea) {
 //   const { selectionStart, selectionEnd, value } = textarea;
@@ -134,6 +193,19 @@ const applyStrikethroughStyle = () => {
   insertText(content,[2,7])
 }
 
+const applyListStyle = (ordered=false,checked=false) => {
+  let addContent = ''
+  if(!(ordered || checked)){
+    addContent = '1. '
+  }else if(ordered){
+    addContent = '- '
+  }else if(checked){
+    addContent = '- [ ]'
+  }
+  console.log(addContent)
+  // insertTextPerLine(addContent)
+}
+
 
 const doEdit = (tool) => {
   switch (tool) {
@@ -145,6 +217,12 @@ const doEdit = (tool) => {
       return applyItalicStyle();
     case 'RiStrikethrough':
       return applyStrikethroughStyle();
+    case 'RiListUnordered':
+      return applyListStyle();
+    case 'RiListOrdered2':
+      return applyListStyle(true);
+    case 'RiListCheck3':
+      return applyListStyle(false, true)
     default:
       console.warn(`未处理工具类型: ${tool}`);
       return false; // 返回操作结果
@@ -231,6 +309,8 @@ const changeStyle = () => {
   localStorage.setItem('isDark', proxy.$constants.DARK)
   document.body.classList.toggle('dark', proxy.$constants.DARK)
 }
+
+
 </script>
 
 <style lang="css" scoped>
@@ -257,6 +337,7 @@ const changeStyle = () => {
   box-sizing: border-box; 
   border: var(--box-border);
   height: calc(100vh - 60px);
+  padding: 10px;
 }
 
 .editor textarea{
@@ -269,10 +350,11 @@ const changeStyle = () => {
   outline: none;
   resize: none; /* 禁止用户调整大小 */
   box-sizing: border-box; 
+  font-size: 16px;
 }
 
 .preview {
-  padding: 10px;
+  
   background-color: field;
   overflow: auto;
   
@@ -336,6 +418,16 @@ const changeStyle = () => {
   top: -9999px;
   font-size: 18px;
   white-space: pre
+}
+
+.text-line {
+  width: 100%;
+  line-height: 1.5rem;
+  background-color: aquamarine;
+}
+
+.text-line:focus {
+  outline: none;
 }
 
 
