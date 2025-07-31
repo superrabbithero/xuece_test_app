@@ -27,17 +27,16 @@
       </div>
     </div>
     <div class="editor-area">
+      <div class="editor" v-show="false">
+        <textarea ref="myTextarea" v-model="mdText"></textarea>
+      </div>
       <div class="editor" v-show="editorViewer != 2 ">
-        <textarea ref="myTextarea" v-model="mdText" v-show="false"></textarea>
-        <div contenteditable="true" style="outline: none;" 
-          @keyup="editorAreaKeyup"
-          @pointerup="editorAreaPointerup">
-          <div class="text-line" 
-            v-for="(line,index) in textLines" 
-            :id="`line-${index}`" 
-            :key="index" 
-            @input="handleInput(event, index)" 
-          >{{ line }}</div>
+        <div contenteditable="true" class="edited-dom" style="outline: none ;white-space: pre" ref="textDiv" 
+          @keydown="handleKeyDown"
+          @pointerup="editorAreaPointerup"
+          @input="handleInput">
+          <div class="text-line"  
+          >{{''}}</div>
         </div>
         
         <div class="text-line-position">{{ `行 ${caretPosition.y + 1}, 列 ${caretPosition.x + 1}` }}</div>
@@ -49,51 +48,63 @@
       </div>
     </div>
   </div>
-  
 </template>
-
 <script setup>
 import { useRouter } from 'vue-router';
-import {ref, defineProps, onMounted, getCurrentInstance, nextTick} from 'vue';
+import {ref, defineProps, onMounted, getCurrentInstance} from 'vue';
 const { proxy } = getCurrentInstance()
 
 //编辑器相关变量
-const textLines = ref(['abcdefgwerwerwer','hijklmn'])
+// const textLines = ref(['abcdefgwerwerwer','hijklmn'])
 const caretPosition = ref({y:1,x:1}) 
 
+const textDiv = ref(null)
+
 //编辑器每行的input事件
-const handleInput = (event,index) => {
-  if(textLines.value[index] != null){
-    const selection = window.getSelection()
-    console.log(selection.focusOffset)
+const handleInput = () => {
+
+  mdText.value = textDiv.value.innerText
+  saveCursorPosition()
+}
+
+const handleKeyDown = (event) => {
+  saveCursorPosition()
+
+  const textLines = textDiv.value.querySelectorAll('.text-line');
+  const lastLine = textLines[textLines.length - 1];
+
+  if (
+    (event.key === 'Backspace' || event.key === 'Delete') &&
+    textLines.length === 1 && 
+    lastLine.textContent.trim() === ''
+  ) {
+    event.preventDefault(); // 阻止默认行为
+  }
+
+  if (event.key === 'Enter'){
+    //在当前位置插入换行符
+    const range = curSelection.value.getRangeAt(0);
+    const br = document.createTextNode('  ');
+    range.insertNode(br);
+
+    // 移动光标到换行后
+    range.setStartAfter(br);
+    range.collapse(true);
+    curSelection.value.removeAllRanges();
+    curSelection.value.addRange(range);
   }
 }
 
-const editorAreaKeyup = (event) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-    const selection = window.getSelection();
-    caretPosition.value.x = selection.focusOffset
-    caretPosition.value.y = Number(selection.focusNode.parentNode.id.substring(5))
-  }
-}
 
-
-const selectRange = ref({
-  start:[-1,-1], 
-  end:[-1,-1],
-  backward:false
-})
+const curSelection = ref(null)
 
 // const selecting = ref(false)
 
 //获得光标的坐标
 const editorAreaPointerup = () => {
-  const selection = window.getSelection();
-  caretPosition.value.x = selection.focusOffset
-  caretPosition.value.y = Number(selection.focusNode.parentNode.id.substring(5))
-  selectRange.value.start = [Number(selection.anchorNode.parentNode.id.substring(5)),selection.anchorOffset]
-  selectRange.value.end = [caretPosition.value.y,caretPosition.value.x]
-  selectRange.value.backward = selection.direction == 'backward'
+  //获得当前selection数据
+  saveCursorPosition()
+  console.log(curSelection.value.toString())
 }
 
 
@@ -108,6 +119,7 @@ const props = defineProps({
   }
 })
 
+
 //控制预览模式
 const editorViewer = ref(1) //仅编辑，编辑&预览，仅预览 0，1，2
 const changeViewer = ()=>{
@@ -115,63 +127,82 @@ const changeViewer = ()=>{
 }
 
 // 编辑工具相关方法
-const insertText = (content, selectRange=null) => { //工具方法,在光标处插入内容,并定位光标
-  const textarea = myTextarea.value;
-  const startPos = textarea.selectionStart;
-  const endPos = textarea.selectionEnd;
+// const insertText = (content, selectRange=null) => { //工具方法,在光标处插入内容,并定位光标
+//   //textarea
 
-  const selectContent = mdText.value.substring(startPos,endPos)
+//   console.log(selectRange)
+  // const textarea = myTextarea.value;
+  // const startPos = textarea.selectionStart;
+  // const endPos = textarea.selectionEnd;
 
-  const selectLength = selectContent.length || content.length
+  // const selectContent = mdText.value.substring(startPos,endPos)
 
-  if(selectContent.length > 0){
-    const newContent = content.substring(0, selectRange[0]) +
-                     selectContent +
-                     content.substring(selectRange[1])
-    mdText.value = mdText.value.substring(0, startPos) + 
-               newContent + 
-               mdText.value.substring(endPos);
+  // // const selectLength = selectContent.length || content.length
 
-  }else{
-    mdText.value = mdText.value.substring(0, startPos) + 
-               content + 
-               mdText.value.substring(endPos);
-  }
+  // if(selectContent.length > 0){
+  //   const newContent = content.substring(0, selectRange[0]) +
+  //                    selectContent +
+  //                    content.substring(selectRange[1])
+  //   mdText.value = mdText.value.substring(0, startPos) + 
+  //              newContent + 
+  //              mdText.value.substring(endPos);
+
+  // }else{
+  //   mdText.value = mdText.value.substring(0, startPos) + 
+  //              content + 
+  //              mdText.value.substring(endPos);
+  // }
   
   // 设置光标位置
-  nextTick(() => {
-    if(selectRange){
-      textarea.setSelectionRange(startPos + selectRange[0], startPos + selectRange[0] + selectLength);
-    }else{
-      textarea.selectionStart = startPos + content.length;
-      textarea.selectionEnd = startPos + content.length;
-    }
-    textarea.focus();
-  });
+  // nextTick(() => {
+    // if(selectRange){
+    //   textarea.setSelectionRange(startPos + selectRange[0], startPos + selectRange[0] + selectLength);
+    // }else{
+    //   textarea.selectionStart = startPos + content.length;
+    //   textarea.selectionEnd = startPos + content.length;
+    // }
+    // textarea.focus();
+  // });
+
+// };
+
+let savedRange = null;
+// 保存当前光标位置
+const saveCursorPosition = () => {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    curSelection.value = selection
+    savedRange = selection.getRangeAt(0);
+  }
+
+  console.log(savedRange)
 };
 
-// const insertTextPerLine = (content) => {
-//   const { selectionStart, selectionEnd, value } = myTextarea.value
-//   const selectContent = mdText.value.substring(startPos,endPos)
+// 插入文本（支持替换选中内容）
+const insertText = (text,selectRange=null) => {
 
-// }
-//检查是否选中整段或多段文字
-// function isWholeParagraphSelected(textarea) {
-//   const { selectionStart, selectionEnd, value } = textarea;
-  
-//   // 1. 如果没有选中文本,直接返回 false
-//   if (selectionStart === selectionEnd) return false;
+  console.log(selectRange)
+  console.log(savedRange)
+  if (!textDiv.value) return;
 
-//   // 2. 获取选中文本前后的字符
-//   const prevChar = value[selectionStart - 1];
-//   const nextChar = value[selectionEnd];
+  const selection = curSelection.value
+  const range = savedRange || (selection.rangeCount > 0 && selection.getRangeAt(0));
+  if (!range) return;
 
-//   // 3. 判断选中内容是否以段落边界开头和结尾
-//   const startsAtParagraphStart = selectionStart === 0 || prevChar === '\n';
-//   const endsAtParagraphEnd = selectionEnd === value.length || nextChar === '\n';
+  range.deleteContents();
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
 
-//   return startsAtParagraphStart && endsAtParagraphEnd;
-// }
+  // 更新光标位置
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  mdText.value = textDiv.value.innerText
+  saveCursorPosition()
+};
+
 
 const applyHeadingStyle = () => {
   const content = '## 标题 '
@@ -423,11 +454,17 @@ const changeStyle = () => {
 .text-line {
   width: 100%;
   line-height: 1.5rem;
+  min-height: 1.5rem;
   background-color: aquamarine;
 }
 
 .text-line:focus {
   outline: none;
+}
+
+.edited-dom {
+  outline: none ;
+  white-space: pre
 }
 
 
