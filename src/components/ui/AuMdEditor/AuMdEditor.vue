@@ -27,14 +27,16 @@
       </div>
     </div>
     <div class="editor-area">
-      <div class="editor" v-show="false">
+      <div class="editor" >
         <textarea ref="myTextarea" v-model="mdText"></textarea>
       </div>
       <div class="editor" v-show="editorViewer != 2 ">
-        <div contenteditable="true" class="edited-dom" style="outline: none ;white-space: pre" ref="textDiv" 
+        <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" 
           @keydown="handleKeyDown"
           @pointerup="editorAreaPointerup"
-          @input="handleInput">
+          @input="handleInput"
+          @paste="handlePaste">
+          
           <div class="text-line"  
           >{{''}}</div>
         </div>
@@ -95,10 +97,65 @@ const handleKeyDown = (event) => {
   }
 }
 
+//拦截contesteditable原生复制
+const handlePaste = (e) => {
+  e.preventDefault();
+  const clipboardText = e.clipboardData.getData('text/plain');
+  insertLinesAtCursor(clipboardText);
+}
+
+const insertLinesAtCursor = (text) => {
+  const selection = window.getSelection();
+  if (!selection.rangeCount || !textDiv.value) return;
+  
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  
+  const lines = text.split(/\r?\n/);
+  // const fragment = document.createDocumentFragment();
+  
+  lines.forEach((line, index) => {
+    const div = document.createElement('div');
+    div.className = 'text-line';
+    div.textContent = line;
+    if(index == 0){
+      range.insertNode(div);
+    }else{
+      range.endContainer.parentElement.insertBefore(div, range.endContainer.nextSibling);
+    }
+
+    // 立即将光标移动到当前行末尾
+    const newRange = document.createRange();
+    newRange.selectNodeContents(div);
+    newRange.collapse(false); // false 表示移动到末尾
+    
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+    
+    // 更新原始range的位置，以便下一行插入到正确位置
+    range.setStartAfter(div);
+  
+  });
+  
+  
+  
+  // 移动光标到最后
+  const lastDiv = textDiv.value.querySelector('.text-line:last-child');
+  if (lastDiv) {
+    const newRange = document.createRange();
+    newRange.selectNodeContents(lastDiv);
+    newRange.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(newRange);
+  }
+  
+  // 触发输入事件
+  const event = new Event('input', { bubbles: true });
+  textDiv.value.dispatchEvent(event);
+}
 
 const curSelection = ref(null)
-
-// const selecting = ref(false)
 
 //获得光标的坐标
 const editorAreaPointerup = () => {
@@ -125,46 +182,6 @@ const editorViewer = ref(1) //仅编辑，编辑&预览，仅预览 0，1，2
 const changeViewer = ()=>{
   editorViewer.value = (editorViewer.value + 1 )%3
 }
-
-// 编辑工具相关方法
-// const insertText = (content, selectRange=null) => { //工具方法,在光标处插入内容,并定位光标
-//   //textarea
-
-//   console.log(selectRange)
-  // const textarea = myTextarea.value;
-  // const startPos = textarea.selectionStart;
-  // const endPos = textarea.selectionEnd;
-
-  // const selectContent = mdText.value.substring(startPos,endPos)
-
-  // // const selectLength = selectContent.length || content.length
-
-  // if(selectContent.length > 0){
-  //   const newContent = content.substring(0, selectRange[0]) +
-  //                    selectContent +
-  //                    content.substring(selectRange[1])
-  //   mdText.value = mdText.value.substring(0, startPos) + 
-  //              newContent + 
-  //              mdText.value.substring(endPos);
-
-  // }else{
-  //   mdText.value = mdText.value.substring(0, startPos) + 
-  //              content + 
-  //              mdText.value.substring(endPos);
-  // }
-  
-  // 设置光标位置
-  // nextTick(() => {
-    // if(selectRange){
-    //   textarea.setSelectionRange(startPos + selectRange[0], startPos + selectRange[0] + selectLength);
-    // }else{
-    //   textarea.selectionStart = startPos + content.length;
-    //   textarea.selectionEnd = startPos + content.length;
-    // }
-    // textarea.focus();
-  // });
-
-// };
 
 let savedRange = null;
 // 保存当前光标位置
@@ -368,6 +385,7 @@ const changeStyle = () => {
   box-sizing: border-box; 
   border: var(--box-border);
   height: calc(100vh - 60px);
+  background-color: field;
   padding: 10px;
 }
 
@@ -455,18 +473,54 @@ const changeStyle = () => {
   width: 100%;
   line-height: 1.5rem;
   min-height: 1.5rem;
-  background-color: aquamarine;
+  background-color: field;
+  white-space: pre-wrap;
 }
 
-.text-line:focus {
-  outline: none;
-}
+
 
 .edited-dom {
+  counter-reset: section;
+  font-family: auto;
   outline: none ;
-  white-space: pre
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  padding-left: 45px;
+  box-sizing: border-box;
 }
 
+.edited-dom > .text-line {
+  position: relative;
+}
+
+.edited-dom > .text-line:before {
+  counter-increment: section; /* 递增计数器 */
+  content: counter(section); /* 显示计数器 */
+  position: absolute;
+  /* font-size: 0.8rem; */
+  left: -6ch;
+  width: 6ch;
+  height: 1.5rem;
+  line-height: 1.5rem;
+  /* background-color: aquamarine; */
+  /* z-index: 999; */
+  text-align: center;
+  opacity: 0.5;
+}
 
 
 </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
