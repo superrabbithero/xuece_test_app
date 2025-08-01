@@ -36,13 +36,14 @@
           @pointerup="editorAreaPointerup"
           @input="handleInput"
           @paste="handlePaste">
-          
-          <div class="text-line"  
-          >{{''}}</div>
+          <div v-for="(line,index) in textLines" :key="index" class="text-line" :id="`line-${index}`"
+          >{{ line }}</div>
         </div>
         
-        <div class="text-line-position">{{ `行 ${caretPosition.y + 1}, 列 ${caretPosition.x + 1}` }}</div>
-        <div class="text-line-position">{{ selectRange }}</div>
+        <div class="text-line-position">
+          <div>{{ curRange }}</div>
+          <div>{{ textLines }}</div>
+        </div>
       </div>
       <div class="preview" v-if="editorViewer != 0">
         <au-markdown-viewer :content="mdText"
@@ -53,49 +54,117 @@
 </template>
 <script setup>
 import { useRouter } from 'vue-router';
-import {ref, defineProps, onMounted, getCurrentInstance} from 'vue';
+import {ref, defineProps, onMounted, getCurrentInstance, nextTick} from 'vue';
 const { proxy } = getCurrentInstance()
 
 //编辑器相关变量
 // const textLines = ref(['abcdefgwerwerwer','hijklmn'])
-const caretPosition = ref({y:1,x:1}) 
 
 const textDiv = ref(null)
+
+const textLines = ref(['# 标题'])
 
 //编辑器每行的input事件
 const handleInput = () => {
 
+  const content = curSelection.value.focusNode.parentElement.innerText
+  saveCursorPosition()
+  textLines.value[curRange.value.endIndex] = content
+  
+  //刷新光标位置
+  nextTick(()=>{
+    const newRange = document.createRange()
+    const textNode = document.getElementById(`line-${curRange.value.endIndex}`).firstChild
+    newRange.setStart(textNode,curRange.value.startOffset)
+    newRange.setEnd(textNode,curRange.value.endOffset)
+    console.log(newRange)
+    curSelection.value.removeAllRanges(); // 清除现有选区
+    curSelection.value.addRange(newRange);   // 设置新选区
+  })
+    
+
   mdText.value = textDiv.value.innerText
+  console.log('handleInput')
+  
+}
+
+//自己写一个基于textLines的range
+const curRange = ref(null)
+
+const getRange = () => {
+  const startIndex = Number(savedRange.startContainer.parentElement.id.substring(5))
+  const startOffset = savedRange.startOffset
+  const endIndex = Number(savedRange.endContainer.parentElement.id.substring(5))
+  const endOffset = savedRange.endOffset
+  const collapsed = savedRange.collapsed
+  curRange.value = {
+    startIndex,
+    startOffset,
+    endIndex,
+    endOffset,
+    collapsed
+  }
+}
+
+const updateRange = (lineIndex, offset) => {
+  //刷新光标位置
+  const newRange = document.createRange()
+  const textNode = document.getElementById(`line-${lineIndex}`).firstChild
+  newRange.setStart(textNode, offset)
+  newRange.setEnd(textNode, offset)
+  curSelection.value.removeAllRanges(); // 清除现有选区
+  curSelection.value.addRange(newRange);   // 设置新选区
   saveCursorPosition()
 }
 
-const handleKeyDown = (event) => {
-  saveCursorPosition()
+const deleteContents = () => {
+  if(curRange.value.collapsed)
+    return;
 
-  const textLines = textDiv.value.querySelectorAll('.text-line');
-  const lastLine = textLines[textLines.length - 1];
+  if(curRange.value.startIndex == curRange.value.endIndex){
+    const content = textLines.value[curRange.value.startIndex]
+    textLines.value[curRange.value.startIndex] 
+      = `${content.substring(0,curRange.value.startOffset)}${content.substring(curRange.value.endOffset)}`
+    updateRange(curRange.value.startIndex,curRange.value.startOffset)
+  }
+}
+
+const handleKeyDown = (event) => {
+  console.log('handleKeyDown')
+  requestAnimationFrame(() => {
+    saveCursorPosition()
+  });
+  
+  
 
   if (
     (event.key === 'Backspace' || event.key === 'Delete') &&
-    textLines.length === 1 && 
-    lastLine.textContent.trim() === ''
+    textLines.value.length === 1 && 
+    textLines.value[textLines.value.length - 1].trim() === ''
   ) {
     event.preventDefault(); // 阻止默认行为
   }
 
   if (event.key === 'Enter'){
+    event.preventDefault()
     //在当前位置插入换行符
-    const range = curSelection.value.getRangeAt(0);
-    const br = document.createTextNode('  ');
-    range.insertNode(br);
-
+    if(!curRange.value.collapsed)
+      deleteContents()
+    
+    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset)
+    console.log(nextLines)
+    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}  `
+    console.log(`${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}  \n`)
+    textLines.value.splice(curRange.value.endIndex+1, 0 ,nextLines)
     // 移动光标到换行后
-    range.setStartAfter(br);
-    range.collapse(true);
-    curSelection.value.removeAllRanges();
-    curSelection.value.addRange(range);
+    nextTick(()=>{
+      updateRange(curRange.value.startIndex+1,0)
+      mdText.value = textDiv.value.innerText
+    })
+    
   }
 }
+
 
 //拦截contesteditable原生复制
 const handlePaste = (e) => {
@@ -186,13 +255,11 @@ const changeViewer = ()=>{
 let savedRange = null;
 // 保存当前光标位置
 const saveCursorPosition = () => {
-  const selection = window.getSelection();
-  if (selection.rangeCount > 0) {
-    curSelection.value = selection
-    savedRange = selection.getRangeAt(0);
-  }
-
-  console.log(savedRange)
+  
+  curSelection.value = window.getSelection();
+  savedRange = curSelection.value.getRangeAt(0);
+  getRange()
+  console.log(curSelection.value)
 };
 
 // 插入文本（支持替换选中内容）
@@ -362,153 +429,12 @@ const changeStyle = () => {
 </script>
 
 <style lang="css" scoped>
-.au-md-editor-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap:4px;
-  padding: 5px;
-  box-sizing: border-box;
+@import './index.css';
+
+.text-line-position {
+  position: fixed;
+  bottom: 10px;
 }
-
-.editor-area{
-  display: flex;
-  gap: 4px;
-  height: 100%;
-}
-
-.editor, .preview {
-  border-radius: 5px;
-  overflow: hidden;
-  flex-basis: 100%;
-  box-sizing: border-box; 
-  border: var(--box-border);
-  height: calc(100vh - 60px);
-  background-color: field;
-  padding: 10px;
-}
-
-.editor textarea{
-  width: 100%;
-  height: 100%;
-  /* 重置默认样式 */
-  padding: 10px;
-  margin: 0;
-  border: none;
-  outline: none;
-  resize: none; /* 禁止用户调整大小 */
-  box-sizing: border-box; 
-  font-size: 16px;
-}
-
-.preview {
-  
-  background-color: field;
-  overflow: auto;
-  
-}
-
-.tool-bar{
-  height:3rem;
-  padding: 5px 6px;
-  width: 100%;
-  box-sizing: border-box;
-  background-color: var(--box-bgc);
-  border: var(--box-border);
-  border-radius: 5px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between
-}
-
-
-.tool-bar-item {
-  height: 32px;
-  width: 32px;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tool-bar-item:hover {
-  background-color: #5551;
-}
-
-.tool-group {
-  display: flex;
-  align-items: center;
-}
-
-.file-name-input {
-  max-width: 100%;
-  min-width: 2ch;
-  border: none;
-  margin: 0;
-  padding: 0 5px;
-  font-size: 18px;
-  border-radius: 2px;
-  height: 32px;
-/*  box-sizing: border-box;*/
-  margin-left: 4px;
-}
-
-.file-name-input:hover,.file-name-input:focus {
-  background-color: #5551;
-  outline: none;
-}
-
-.hide-span {
-  position: absolute;
-  visibility: hidden;
-  left:-9999px;
-  top: -9999px;
-  font-size: 18px;
-  white-space: pre
-}
-
-.text-line {
-  width: 100%;
-  line-height: 1.5rem;
-  min-height: 1.5rem;
-  background-color: field;
-  white-space: pre-wrap;
-}
-
-
-
-.edited-dom {
-  counter-reset: section;
-  font-family: auto;
-  outline: none ;
-  height: 100%;
-  width: 100%;
-  overflow: auto;
-  padding-left: 45px;
-  box-sizing: border-box;
-}
-
-.edited-dom > .text-line {
-  position: relative;
-}
-
-.edited-dom > .text-line:before {
-  counter-increment: section; /* 递增计数器 */
-  content: counter(section); /* 显示计数器 */
-  position: absolute;
-  /* font-size: 0.8rem; */
-  left: -6ch;
-  width: 6ch;
-  height: 1.5rem;
-  line-height: 1.5rem;
-  /* background-color: aquamarine; */
-  /* z-index: 999; */
-  text-align: center;
-  opacity: 0.5;
-}
-
 
 </style>
 

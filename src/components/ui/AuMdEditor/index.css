@@ -1,0 +1,146 @@
+.au-md-editor-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap:4px;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.editor-area{
+  display: flex;
+  gap: 4px;
+  height: 100%;
+}
+
+.editor, .preview {
+  border-radius: 5px;
+  overflow: hidden;
+  flex-basis: 100%;
+  box-sizing: border-box; 
+  border: var(--box-border);
+  height: calc(100vh - 60px);
+  background-color: field;
+  padding: 10px;
+}
+
+.editor textarea{
+  width: 100%;
+  height: 100%;
+  /* 重置默认样式 */
+  padding: 10px;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none; /* 禁止用户调整大小 */
+  box-sizing: border-box; 
+  font-size: 16px;
+}
+
+.preview {
+  
+  background-color: field;
+  overflow: auto;
+  
+}
+
+.tool-bar{
+  height:3rem;
+  padding: 5px 6px;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--box-bgc);
+  border: var(--box-border);
+  border-radius: 5px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between
+}
+
+
+.tool-bar-item {
+  height: 32px;
+  width: 32px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-bar-item:hover {
+  background-color: #5551;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+}
+
+.file-name-input {
+  max-width: 100%;
+  min-width: 2ch;
+  border: none;
+  margin: 0;
+  padding: 0 5px;
+  font-size: 18px;
+  border-radius: 2px;
+  height: 32px;
+/*  box-sizing: border-box;*/
+  margin-left: 4px;
+}
+
+.file-name-input:hover,.file-name-input:focus {
+  background-color: #5551;
+  outline: none;
+}
+
+.hide-span {
+  position: absolute;
+  visibility: hidden;
+  left:-9999px;
+  top: -9999px;
+  font-size: 18px;
+  white-space: pre
+}
+
+.text-line {
+  width: 100%;
+  line-height: 1.5rem;
+  min-height: 1.5rem;
+  background-color: field;
+  white-space: pre-wrap;
+}
+
+
+
+.edited-dom {
+/*  counter-reset: section;*/
+  font-family: auto;
+  outline: none ;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+/*  padding-left: 45px;*/
+  box-sizing: border-box;
+}
+
+.edited-dom > .text-line {
+/*  position: relative;*/
+}
+
+.edited-dom > .text-line:before {
+/*  counter-increment: section; /* 递增计数器 */
+/*  content: counter(section); /* 显示计数器 */
+/*  position: absolute;*/
+  /* font-size: 0.8rem; */
+/*  left: -6ch;*/
+/*  width: 6ch;*/
+/*  height: 1.5rem;*/
+/*  line-height: 1.5rem;*/
+  /* background-color: aquamarine; */
+  /* z-index: 999; */
+/*  text-align: center;*/
+/*  opacity: 0.5;*/
+}
