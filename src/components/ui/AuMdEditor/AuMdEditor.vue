@@ -33,10 +33,10 @@
       <div class="editor" v-show="editorViewer != 2 ">
         <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" 
           @keydown="handleKeyDown"
-          @pointerup="editorAreaPointerup"
+          @pointerdown="editorAreaPointerDown"
           @input="handleInput"
           @paste="handlePaste">
-          <div v-for="(line,index) in textLines" :key="index" class="text-line" :id="`line-${index}`"
+          <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
           >{{ line }}</div>
         </div>
         
@@ -109,6 +109,7 @@ const getRange = () => {
 const updateRange = (lineIndex, offset) => {
   //刷新光标位置
   const newRange = document.createRange()
+  
   const textNode = document.getElementById(`line-${lineIndex}`).firstChild
   newRange.setStart(textNode, offset)
   newRange.setEnd(textNode, offset)
@@ -121,11 +122,38 @@ const deleteContents = () => {
   if(curRange.value.collapsed)
     return;
 
-  if(curRange.value.startIndex == curRange.value.endIndex){
+  if(curRange.value.startIndex == curRange.value.endIndex){ //删除选择在一行内
     const content = textLines.value[curRange.value.startIndex]
-    textLines.value[curRange.value.startIndex] 
-      = `${content.substring(0,curRange.value.startOffset)}${content.substring(curRange.value.endOffset)}`
-    updateRange(curRange.value.startIndex,curRange.value.startOffset)
+    const newLine = `${content.substring(0,curRange.value.startOffset)}${content.substring(curRange.value.endOffset)}` || '\n'
+    
+    textLines.value[Math.min(curRange.value.startIndex,curRange.value.endIndex)] = newLine
+    nextTick(()=>{
+      updateRange(curRange.value.startIndex,curRange.value.startOffset)
+    })
+  }else{
+    let start, startOffset, end, endOffset;
+
+    if (curRange.value.startIndex < curRange.value.endIndex) {
+      start = curRange.value.startIndex;
+      startOffset = curRange.value.startOffset;
+      end = curRange.value.endIndex;
+      endOffset = curRange.value.endOffset;
+    } else {
+      start = curRange.value.endIndex;
+      startOffset = curRange.value.endOffset;
+      end = curRange.value.startIndex;
+      endOffset = curRange.value.startOffset;
+    }
+
+    console.log(start,startOffset,end,endOffset)
+    const newLine = textLines.value[start].substring(0,startOffset) + textLines.value[end].substring(endOffset)
+    
+    textLines.value[start] = newLine || '\n'
+    textLines.value.splice(start+1,end-start)
+    nextTick(()=>{
+      updateRange(start, startOffset)
+    })
+    
   }
 }
 
@@ -137,12 +165,55 @@ const handleKeyDown = (event) => {
   
   
 
-  if (
-    (event.key === 'Backspace' || event.key === 'Delete') &&
-    textLines.value.length === 1 && 
-    textLines.value[textLines.value.length - 1].trim() === ''
-  ) {
-    event.preventDefault(); // 阻止默认行为
+  if (event.key === 'Backspace' || event.key === 'Delete'){
+    if(!curRange.value.collapsed){
+      deleteContents()
+      event.preventDefault(); // 阻止默认行为
+    }
+    else if(curRange.value.startOffset == 0 && event.key === 'Backspace'){
+      const index = curRange.value.startIndex
+      if(index != 0){
+        const offset = textLines.value[index - 1].length
+        const upLine = textLines.value[index]
+        textLines.value[index-1] =  upLine == '\n'
+                                  ? textLines.value[index-1]
+                                  : textLines.value[index-1] + upLine
+        textLines.value.splice(curRange.value.startIndex,1)
+        nextTick(()=>{
+          updateRange(index-1, offset)
+        })
+      }
+
+      event.preventDefault(); // 阻止默认行为
+    }else if((curRange.value.startOffset == textLines.value[curRange.value.startIndex].length || textLines.value[curRange.value.startIndex] == '\n') && event.key === 'Delete'){
+      const index = curRange.value.startIndex
+      if(index + 1 <= textLines.value.length - 1){
+        const offset = curRange.value.endOffset
+        const downLine = textLines.value[index+1]
+        textLines.value[index] =  textLines.value[index] + downLine
+        textLines.value.splice(index+1,1)
+        nextTick(()=>{
+          updateRange(index, offset)
+        })
+      }
+      
+      
+
+      event.preventDefault(); // 阻止默认行为
+    }else if(curRange.value.startOffset == 1 && textLines.value[curRange.value.startIndex].length == 1 && event.key === 'Backspace'){
+      textLines.value[curRange.value.startIndex] = '\n'
+      nextTick(()=>{
+        updateRange(curRange.value.startIndex, 0)
+      })
+      event.preventDefault();
+    }else if(curRange.value.startOffset == 0 && textLines.value[curRange.value.startIndex].length == 1 && event.key === 'Delete'){
+      textLines.value[curRange.value.startIndex] = '\n'
+      nextTick(()=>{
+        updateRange(curRange.value.startIndex, 0)
+      })
+      event.preventDefault();
+    }
+    
   }
 
   if (event.key === 'Enter'){
@@ -151,10 +222,9 @@ const handleKeyDown = (event) => {
     if(!curRange.value.collapsed)
       deleteContents()
     
-    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset)
-    console.log(nextLines)
-    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}  `
-    console.log(`${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}  \n`)
+    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset) || '\n'
+    console.log('下一行',nextLines)
+    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}` || '\n'
     textLines.value.splice(curRange.value.endIndex+1, 0 ,nextLines)
     // 移动光标到换行后
     nextTick(()=>{
@@ -174,63 +244,76 @@ const handlePaste = (e) => {
 }
 
 const insertLinesAtCursor = (text) => {
-  const selection = window.getSelection();
-  if (!selection.rangeCount || !textDiv.value) return;
-  
-  const range = selection.getRangeAt(0);
-  range.deleteContents();
+
+  if(!curRange.value.collapsed)
+    deleteContents();
   
   const lines = text.split(/\r?\n/);
-  // const fragment = document.createDocumentFragment();
-  
-  lines.forEach((line, index) => {
-    const div = document.createElement('div');
-    div.className = 'text-line';
-    div.textContent = line;
-    if(index == 0){
-      range.insertNode(div);
-    }else{
-      range.endContainer.parentElement.insertBefore(div, range.endContainer.nextSibling);
-    }
 
-    // 立即将光标移动到当前行末尾
-    const newRange = document.createRange();
-    newRange.selectNodeContents(div);
-    newRange.collapse(false); // false 表示移动到末尾
-    
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(newRange);
-    
-    // 更新原始range的位置，以便下一行插入到正确位置
-    range.setStartAfter(div);
-  
-  });
-  
-  
-  
-  // 移动光标到最后
-  const lastDiv = textDiv.value.querySelector('.text-line:last-child');
-  if (lastDiv) {
-    const newRange = document.createRange();
-    newRange.selectNodeContents(lastDiv);
-    newRange.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
+  console.log(lines)
+
+  let offset = 0
+  let index = 0
+
+  if(lines.length == 0)
+    return
+  else if(lines.length == 1){
+    console.log('一行')
+    index = curRange.value.endIndex
+    const text = textLines.value[curRange.value.endIndex] 
+    offset = text.length + lines[0].length - 1
+    const result = text.substring(0,curRange.value.startOffset) + lines[0] + text.substring(curRange.value.endOffset)
+    textLines.value[curRange.value.endIndex] = result
+  }else{
+    const text = textLines.value[curRange.value.endIndex] 
+    textLines.value[curRange.value.endIndex] = text.substring(0,curRange.value.startOffset) + lines[0]
+    const lastLine = lines[lines.length - 1] + text.substring(curRange.value.endOffset)
+    textLines.value.splice(curRange.value.endIndex+1,0,lastLine)
+    if(lines.slice(1,-1).length > 0)
+      textLines.value.splice(curRange.value.endIndex+1,0,...lines.slice(1,-1))
+    index = curRange.value.endIndex + lines.length - 1
+    offset = lines[lines.length - 1].length
   }
+
+  console.log(index,offset)
+  
+  nextTick(()=>{
+    updateRange(index,offset)
+    mdText.value = textDiv.value.innerText
+  })
+  
+
+
+  
+  
+  
+  
   
   // 触发输入事件
-  const event = new Event('input', { bubbles: true });
-  textDiv.value.dispatchEvent(event);
+  // const event = new Event('input', { bubbles: true });
+  // textDiv.value.dispatchEvent(event);
 }
 
 const curSelection = ref(null)
 
+
+
+let isRanging = false
+
+const editorAreaPointerDown = () => {
+  isRanging = true
+  document.addEventListener('pointerup', editorAreaPointerup)
+}
+
 //获得光标的坐标
 const editorAreaPointerup = () => {
   //获得当前selection数据
-  saveCursorPosition()
-  console.log(curSelection.value.toString())
+  if(isRanging){
+    saveCursorPosition()
+    console.log(curSelection.value.toString())
+  }
+  isRanging = false
+  document.removeEventListener('pointerup', editorAreaPointerup)
 }
 
 
@@ -437,16 +520,3 @@ const changeStyle = () => {
 }
 
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
