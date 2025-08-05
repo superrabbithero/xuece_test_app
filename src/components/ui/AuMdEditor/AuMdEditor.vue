@@ -11,7 +11,7 @@
         </div>
       </div>
       <div class="tool-group">
-        <div v-for="tool in toolBar" :key="tool" class="tool-bar-item" @click="tool?.click || doEdit(tool.iconName)">
+        <div v-for="tool in toolBar" :key="tool" :class="['tool-bar-item',{'unable':tool?.unable}]" @click="tool?.click?.() || doEdit(tool.iconName)">
           <au-icon :name="tool.iconName" size="22"/>
         </div>
       </div>
@@ -26,25 +26,35 @@
         </div>
       </div>
     </div>
-    <div class="editor-area">
-      <div class="editor" >
-        <textarea ref="myTextarea" v-model="mdText"></textarea>
-      </div>
-      <div class="editor" v-show="editorViewer != 2 ">
-        <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" 
-          @keydown="handleKeyDown"
-          @pointerdown="editorAreaPointerDown"
-          @input="handleInput"
-          @paste="handlePaste">
-          <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
-          >{{ line }}</div>
+    <div class="editor-area" ref="editorArea">
+      <div class="editor-container" v-show="editorViewer != 2 " >
+        <div class="editor">
+          <div class="edited-dom hidden" >
+            <div v-for="(line,index) in textLines" :key="index" class="text-line"
+            ><div class="line-num">{{index+1}}</div>{{ line }}</div>
+          </div>
+          <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" :style="{paddingBottom:`${paddingBottom}px`}"
+            @keydown="handleKeyDown"
+            @pointerdown="editorAreaPointerDown"
+            @input="handleInput"
+            @paste="handlePaste"
+            @compositionend="handleCompositionEnd">
+            <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
+            >{{ line }}</div>
+          </div>
         </div>
         
-        <div class="text-line-position">
+        
+        <div class="text-line-position" v-if="debug">
           <div>{{ curRange }}</div>
           <div>{{ textLines }}</div>
         </div>
+
+        <div class="editor-footer-bar">
+          {{ rangePosition }}
+        </div>
       </div>
+
       <div class="preview" v-if="editorViewer != 0">
         <au-markdown-viewer :content="mdText"
           @update-headings="handleHeadingsUpdate"/>
@@ -54,8 +64,62 @@
 </template>
 <script setup>
 import { useRouter } from 'vue-router';
-import {ref, defineProps, onMounted, getCurrentInstance, nextTick} from 'vue';
+import {ref, defineProps, onMounted, getCurrentInstance, nextTick, onUnmounted, computed} from 'vue';
 const { proxy } = getCurrentInstance()
+import { debounce } from 'lodash-es';
+
+const debug = false //打开监控数据
+
+//底部positon变量
+const rangePosition = computed(()=>{
+  if(curRange.value?.collapsed){
+    return `Line ${curRange.value.endIndex + 1}, Column ${curRange.value.endOffset + 1}`
+  }else if(curRange.value){
+    const rangeTextLength = curSelection.value.toString().length
+    const linesCount = curRange.value.startIndex - curRange.value.endIndex
+    return `${(linesCount>0?linesCount:-linesCount)+1} lines, ${rangeTextLength} characters selected`
+  }else{
+    return `Line 0, Column 0`
+  }
+})
+
+// textLines防抖处理
+const syncMarkdown = debounce(() => {
+  saveSnapshot()
+  mdText.value = textLines.value.join('\n');
+}, 100);
+
+//用于监听编辑器高度变化
+const editorArea = ref(null)
+
+const paddingBottom = ref(10)
+
+let observer
+
+onMounted(() => {
+  //调整filename输入框宽度
+  updateWidth()
+
+  //监听editor高度变化，动态修改padding-bottom
+  observer = new ResizeObserver((entries) => {
+    paddingBottom.value = Math.floor(entries[0].contentRect.height/2)
+  });
+
+  observer.observe(editorArea.value);
+
+  textDiv.value.focus()
+
+  nextTick(()=>{
+    updateRange(0,textLines.value[textLines.value.length-1]?.length)
+    saveSnapshot()
+  })
+
+  
+})
+
+onUnmounted(() => {
+  syncMarkdown.cancel()
+})
 
 //编辑器相关变量
 // const textLines = ref(['abcdefgwerwerwer','hijklmn'])
@@ -65,57 +129,85 @@ const textDiv = ref(null)
 const textLines = ref(['# 标题'])
 
 //编辑器每行的input事件
-const handleInput = () => {
+const handleInput = (event) => {
 
-  const content = curSelection.value.focusNode.parentElement.innerText
-  saveCursorPosition()
+  if(!event.isComposing){
+    const content = curSelection.value.focusNode.data
+    textLines.value[curRange.value.endIndex] = content
+    saveCursorPosition()
+    nextTick(()=>{
+      updateRange(curRange.value.endIndex,curRange.value.endOffset)
+      // mdText.value = textDiv.value.innerText
+      syncMarkdown()
+    })
+  }
+}
+
+const handleCompositionEnd = () => {
+  const content = curSelection.value.focusNode.data
   textLines.value[curRange.value.endIndex] = content
-  
-  //刷新光标位置
+  saveCursorPosition()
   nextTick(()=>{
-    const newRange = document.createRange()
-    const textNode = document.getElementById(`line-${curRange.value.endIndex}`).firstChild
-    newRange.setStart(textNode,curRange.value.startOffset)
-    newRange.setEnd(textNode,curRange.value.endOffset)
-    console.log(newRange)
-    curSelection.value.removeAllRanges(); // 清除现有选区
-    curSelection.value.addRange(newRange);   // 设置新选区
+    updateRange(curRange.value.endIndex,curRange.value.endOffset)
+    // mdText.value = textDiv.value.innerText
+    syncMarkdown()
   })
-    
-
-  mdText.value = textDiv.value.innerText
-  console.log('handleInput')
-  
 }
 
 //自己写一个基于textLines的range
 const curRange = ref(null)
 
 const getRange = () => {
-  const startIndex = Number(savedRange.startContainer.parentElement.id.substring(5))
-  const startOffset = savedRange.startOffset
-  const endIndex = Number(savedRange.endContainer.parentElement.id.substring(5))
-  const endOffset = savedRange.endOffset
-  const collapsed = savedRange.collapsed
-  curRange.value = {
-    startIndex,
-    startOffset,
-    endIndex,
-    endOffset,
-    collapsed
+  if(savedRange.startContainer.nodeType === Node.TEXT_NODE){
+    const startIndex = Number(savedRange.startContainer.parentElement.id.substring(5))
+    const startOffset = savedRange.startOffset
+    const endIndex = Number(savedRange.endContainer.parentElement.id.substring(5))
+    const endOffset = savedRange.endOffset
+    const collapsed = savedRange.collapsed
+
+    curRange.value = {
+      startIndex,
+      startOffset,
+      endIndex,
+      endOffset,
+      collapsed
+    }
+  }else{
+    const startIndex = Number(savedRange.startContainer.id.substring(5))
+    const startOffset = savedRange.startOffset
+    const endIndex = Number(savedRange.endContainer.id.substring(5))
+    const endOffset = savedRange.endOffset
+    const collapsed = savedRange.collapsed
+
+    curRange.value = {
+      startIndex,
+      startOffset,
+      endIndex,
+      endOffset,
+      collapsed
+    }
   }
+  
 }
 
 const updateRange = (lineIndex, offset) => {
-  //刷新光标位置
-  const newRange = document.createRange()
+  if(curSelection?.value){
+    //刷新光标位置
+    const newRange = document.createRange()
+    const lineNode = document.getElementById(`line-${lineIndex}`)
+    let textNode = lineNode
+    let relOffset = 0
+    if(lineNode?.firstChild){
+      textNode = lineNode?.firstChild
+      relOffset = offset
+    }
+    newRange.setStart(textNode, relOffset)
+    newRange.setEnd(textNode, relOffset)
+    curSelection.value.removeAllRanges(); // 清除现有选区
+    curSelection.value.addRange(newRange);   // 设置新选区
+    saveCursorPosition()
+  }
   
-  const textNode = document.getElementById(`line-${lineIndex}`).firstChild
-  newRange.setStart(textNode, offset)
-  newRange.setEnd(textNode, offset)
-  curSelection.value.removeAllRanges(); // 清除现有选区
-  curSelection.value.addRange(newRange);   // 设置新选区
-  saveCursorPosition()
 }
 
 const deleteContents = () => {
@@ -124,7 +216,7 @@ const deleteContents = () => {
 
   if(curRange.value.startIndex == curRange.value.endIndex){ //删除选择在一行内
     const content = textLines.value[curRange.value.startIndex]
-    const newLine = `${content.substring(0,curRange.value.startOffset)}${content.substring(curRange.value.endOffset)}` || '\n'
+    const newLine = `${content.substring(0,curRange.value.startOffset)}${content.substring(curRange.value.endOffset)}` || ''
     
     textLines.value[Math.min(curRange.value.startIndex,curRange.value.endIndex)] = newLine
     nextTick(()=>{
@@ -133,7 +225,7 @@ const deleteContents = () => {
   }else{
     let start, startOffset, end, endOffset;
 
-    if (curRange.value.startIndex < curRange.value.endIndex) {
+    if (curRange.value.startIndex <= curRange.value.endIndex) {
       start = curRange.value.startIndex;
       startOffset = curRange.value.startOffset;
       end = curRange.value.endIndex;
@@ -145,10 +237,9 @@ const deleteContents = () => {
       endOffset = curRange.value.startOffset;
     }
 
-    console.log(start,startOffset,end,endOffset)
     const newLine = textLines.value[start].substring(0,startOffset) + textLines.value[end].substring(endOffset)
     
-    textLines.value[start] = newLine || '\n'
+    textLines.value[start] = newLine || ''
     textLines.value.splice(start+1,end-start)
     nextTick(()=>{
       updateRange(start, startOffset)
@@ -158,99 +249,180 @@ const deleteContents = () => {
 }
 
 const handleKeyDown = (event) => {
-  console.log('handleKeyDown')
+
+  if(event.key == 'Process'){
+    return
+  }
   requestAnimationFrame(() => {
     saveCursorPosition()
   });
   
-  
-
+  let rangeIndex = curRange.value.endIndex
+  let rangeOffset = curRange.value.endOffset
+  let ifUpdateRange = true
   if (event.key === 'Backspace' || event.key === 'Delete'){
     if(!curRange.value.collapsed){
       deleteContents()
       event.preventDefault(); // 阻止默认行为
-    }
-    else if(curRange.value.startOffset == 0 && event.key === 'Backspace'){
+      ifUpdateRange = false
+    }else if(curRange.value.startOffset == 0 && event.key === 'Backspace'){
       const index = curRange.value.startIndex
       if(index != 0){
         const offset = textLines.value[index - 1].length
         const upLine = textLines.value[index]
-        textLines.value[index-1] =  upLine == '\n'
+        textLines.value[index-1] =  upLine == ''
                                   ? textLines.value[index-1]
                                   : textLines.value[index-1] + upLine
         textLines.value.splice(curRange.value.startIndex,1)
-        nextTick(()=>{
-          updateRange(index-1, offset)
-        })
+        rangeIndex = index-1
+        rangeOffset = offset
       }
 
       event.preventDefault(); // 阻止默认行为
-    }else if((curRange.value.startOffset == textLines.value[curRange.value.startIndex].length || textLines.value[curRange.value.startIndex] == '\n') && event.key === 'Delete'){
+    }else if((curRange.value.startOffset == textLines.value[curRange.value.startIndex].length || textLines.value[curRange.value.startIndex] == '') && event.key === 'Delete'){
       const index = curRange.value.startIndex
       if(index + 1 <= textLines.value.length - 1){
         const offset = curRange.value.endOffset
         const downLine = textLines.value[index+1]
         textLines.value[index] =  textLines.value[index] + downLine
         textLines.value.splice(index+1,1)
-        nextTick(()=>{
-          updateRange(index, offset)
-        })
+        rangeIndex = index
+        rangeOffset = offset
       }
-      
-      
-
       event.preventDefault(); // 阻止默认行为
     }else if(curRange.value.startOffset == 1 && textLines.value[curRange.value.startIndex].length == 1 && event.key === 'Backspace'){
-      textLines.value[curRange.value.startIndex] = '\n'
-      nextTick(()=>{
-        updateRange(curRange.value.startIndex, 0)
-      })
+      textLines.value[curRange.value.startIndex] = ''
+      rangeIndex = curRange.value.startIndex
+      rangeOffset = 0
       event.preventDefault();
     }else if(curRange.value.startOffset == 0 && textLines.value[curRange.value.startIndex].length == 1 && event.key === 'Delete'){
-      textLines.value[curRange.value.startIndex] = '\n'
-      nextTick(()=>{
-        updateRange(curRange.value.startIndex, 0)
-      })
+      textLines.value[curRange.value.startIndex] = ''
+      rangeIndex = curRange.value.startIndex
+      rangeOffset = 0
       event.preventDefault();
     }
     
-  }
-
-  if (event.key === 'Enter'){
+  }else if (event.key === 'Enter'){
     event.preventDefault()
     //在当前位置插入换行符
     if(!curRange.value.collapsed)
       deleteContents()
     
-    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset) || '\n'
-    console.log('下一行',nextLines)
-    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}` || '\n'
+    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset) || ''
+    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}` || ''
     textLines.value.splice(curRange.value.endIndex+1, 0 ,nextLines)
+    rangeIndex = curRange.value.endIndex + 1
+    rangeOffset = 0
     // 移动光标到换行后
-    nextTick(()=>{
-      updateRange(curRange.value.startIndex+1,0)
-      mdText.value = textDiv.value.innerText
-    })
-    
+  }else if(event.ctrlKey || event.shiftKey || event.metaKey){
+    if((event.ctrlKey || event.shiftKey) && event.key == 'z'){
+      event.preventDefault()
+      undo()
+    }
+    if((event.ctrlKey || event.shiftKey) && event.key == 'y'){
+      event.preventDefault()
+      redo()
+    }
+    return
+  }else{
+    if(!curRange.value.collapsed){
+      deleteContents()
+      ifUpdateRange = false
+    }else{
+      return
+    }
   }
+  if(ifUpdateRange)
+    nextTick(()=>{
+      const lineDom = document.getElementById(`line-${rangeIndex}`)
+      lineDom.scrollIntoView({ behavior: "instant", block: "nearest" });
+      updateRange(rangeIndex,rangeOffset)
+      syncMarkdown()
+      // 保证焦点所在行可见
+      
+    })
+
+
 }
 
 
 //拦截contesteditable原生复制
 const handlePaste = (e) => {
   e.preventDefault();
+  //处理图片
+  if (e.clipboardData.files.length > 0) {
+    // 检查第一个文件是否是图片
+    const file = e.clipboardData.files[0];
+    if (file.type.startsWith('image/')) {
+      const id = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+      
+      convertBlobToBase64(file, (base64) => {
+        applyImageStyle(base64);
+        imgeList.push({
+          id:id,
+          url:base64,
+          uploaded:false,
+          deleted:false})
+      });
+      return;
+    }
+  }
+
+  //处理文本
   const clipboardText = e.clipboardData.getData('text/plain');
   insertLinesAtCursor(clipboardText);
+
 }
 
-const insertLinesAtCursor = (text) => {
+//压缩图片,压缩效果不好，先不压缩了
+// function compressImage(blob, callback, maxWidth = 1080, quality = 0.9) {
+//   const img = new Image();
+//   img.onload = () => {
+//     const canvas = document.createElement("canvas");
+//     const scale = Math.min(maxWidth / img.width, 1);
+//     canvas.width = img.width * scale;
+//     canvas.height = img.height * scale;
+//     const ctx = canvas.getContext("2d");
+//     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+//     canvas.toBlob(callback, "image/jpeg", quality); // 转为压缩后的 Blob
+//   };
+//   img.src = URL.createObjectURL(blob);
+// }
 
-  if(!curRange.value.collapsed)
+
+function convertBlobToBase64(blob, callback) {
+  const reader = new FileReader();
+  reader.onload = (e) => callback(e.target.result);
+  reader.readAsDataURL(blob);
+}
+
+//用于管理文档内的图片
+let imgeList = []
+
+//上传图片到服务器
+// function uploadBase64Image(base64) {
+//   // 去掉 Data URL 前缀（如 "data:image/png;base64,"）
+//   const base64Data = base64.split(",")[1];
+//   fetch("/api/upload", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ image: base64Data }),
+//   });
+//   
+// }
+
+const insertLinesAtCursor = (text) => {
+  // saveCursorPosition()
+  // let ifUpdateRange = true
+
+  if(!curRange.value.collapsed){
     deleteContents();
+    // ifUpdateRange = false
+  }
+
   
   const lines = text.split(/\r?\n/);
 
-  console.log(lines)
 
   let offset = 0
   let index = 0
@@ -258,12 +430,11 @@ const insertLinesAtCursor = (text) => {
   if(lines.length == 0)
     return
   else if(lines.length == 1){
-    console.log('一行')
     index = curRange.value.endIndex
     const text = textLines.value[curRange.value.endIndex] 
-    offset = text.length + lines[0].length - 1
-    const result = text.substring(0,curRange.value.startOffset) + lines[0] + text.substring(curRange.value.endOffset)
-    textLines.value[curRange.value.endIndex] = result
+    offset = curRange.value.startOffset + lines[0].length
+    const result = text.substring(0,curRange.value.startOffset) + lines[0] + text.substring(curRange.value.startOffset)
+    textLines.value[curRange.value.startIndex] = result
   }else{
     const text = textLines.value[curRange.value.endIndex] 
     textLines.value[curRange.value.endIndex] = text.substring(0,curRange.value.startOffset) + lines[0]
@@ -275,23 +446,87 @@ const insertLinesAtCursor = (text) => {
     offset = lines[lines.length - 1].length
   }
 
-  console.log(index,offset)
-  
   nextTick(()=>{
     updateRange(index,offset)
-    mdText.value = textDiv.value.innerText
+    // mdText.value = textDiv.value.innerText
+    syncMarkdown()
   })
+}
+
+const insertLinesAtBefore = (text) => {
+
+  let start, end;
+
+  if (curRange.value.startIndex < curRange.value.endIndex) {
+    start = curRange.value.startIndex;
+    end = curRange.value.endIndex;
+  } else {
+    start = curRange.value.endIndex;
+    end = curRange.value.startIndex;
+  }
+
+  for(let i=start;i<=end;i++){
+    const line = textLines.value[i].trim();
+
+    if (line.startsWith(text)) {
+      textLines.value[i] = line.slice(text.length); // 删除开头的 text
+    }else{
+      textLines.value[i] = text + line;
+    }
+
+  }
   
 
+  nextTick(()=>{
+    updateRange(curRange.value.startIndex,0)
+    // mdText.value = textDiv.value.innerText
+    syncMarkdown()
+  })
+}
+
+const insertLinesAtStartAndEnd = (text) => {
+  let start, startOffset, end, endOffset;
+
+  if (curRange.value.startIndex <= curRange.value.endIndex) {
+    start = curRange.value.startIndex;
+    startOffset = curRange.value.startOffset;
+    end = curRange.value.endIndex;
+    endOffset = curRange.value.endOffset;
+  } else {
+    start = curRange.value.endIndex;
+    startOffset = curRange.value.endOffset;
+    end = curRange.value.startIndex;
+    endOffset = curRange.value.startOffset;
+  }
+
+  if(start != end || curRange.value.collapsed){
+    //选择多行，且非光标，则整段前后插入
+    textLines.value.splice(end+1,0,text)
+    textLines.value.splice(start,0,text)
+    nextTick(()=>{
+    updateRange(curRange.value.startIndex,0)
+    // mdText.value = textDiv.value.innerText
+    syncMarkdown()
+  })
+  }else if(text == '```'){
+    const line = textLines.value[start]
+    const newLine = line.slice(0,startOffset) 
+                  + '`' 
+                  + line.slice(startOffset,endOffset)
+                  + '`'
+                  + line.slice(endOffset)
+    textLines.value[start] = newLine   
+    nextTick(()=>{
+      updateRange(start,endOffset+1)
+      // mdText.value = textDiv.value.innerText
+      syncMarkdown()
+    })           
+  }
 
   
   
+
   
-  
-  
-  // 触发输入事件
-  // const event = new Event('input', { bubbles: true });
-  // textDiv.value.dispatchEvent(event);
 }
 
 const curSelection = ref(null)
@@ -308,18 +543,15 @@ const editorAreaPointerDown = () => {
 //获得光标的坐标
 const editorAreaPointerup = () => {
   //获得当前selection数据
+  console.log(curSelection)
   if(isRanging){
     saveCursorPosition()
-    console.log(curSelection.value.toString())
   }
   isRanging = false
   document.removeEventListener('pointerup', editorAreaPointerup)
 }
 
 
-
-
-const myTextarea = ref(null)
 
 const props = defineProps({
   fileName:{
@@ -342,32 +574,15 @@ const saveCursorPosition = () => {
   curSelection.value = window.getSelection();
   savedRange = curSelection.value.getRangeAt(0);
   getRange()
-  console.log(curSelection.value)
 };
 
 // 插入文本（支持替换选中内容）
 const insertText = (text,selectRange=null) => {
-
   console.log(selectRange)
-  console.log(savedRange)
-  if (!textDiv.value) return;
-
-  const selection = curSelection.value
-  const range = savedRange || (selection.rangeCount > 0 && selection.getRangeAt(0));
-  if (!range) return;
-
-  range.deleteContents();
-  const textNode = document.createTextNode(text);
-  range.insertNode(textNode);
-
-  // 更新光标位置
-  range.setStartAfter(textNode);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-
-  mdText.value = textDiv.value.innerText
-  saveCursorPosition()
+  if(curRange.value){
+    insertLinesAtCursor(text)
+  }
+  
 };
 
 
@@ -394,14 +609,25 @@ const applyStrikethroughStyle = () => {
 const applyListStyle = (ordered=false,checked=false) => {
   let addContent = ''
   if(!(ordered || checked)){
-    addContent = '1. '
-  }else if(ordered){
     addContent = '- '
+  }else if(ordered){
+    addContent = '1. '
   }else if(checked){
-    addContent = '- [ ]'
+    addContent = '- [ ] '
   }
-  console.log(addContent)
-  // insertTextPerLine(addContent)
+  insertLinesAtBefore(addContent)
+}
+
+const applyImageStyle = (data='url') => {
+  insertText(`![输入图片说明](${data})`)
+}
+
+const applyLinkStyle = (data='#') => {
+  insertText(`[这里输入链接描述](${data})`)
+}
+
+const applyTableStyle = () => {
+  insertLinesAtCursor('|  |  |\n|--|--|\n|  |  |')
 }
 
 
@@ -421,6 +647,16 @@ const doEdit = (tool) => {
       return applyListStyle(true);
     case 'RiListCheck3':
       return applyListStyle(false, true)
+    case 'RiDoubleQuotesR':
+      return insertLinesAtBefore('> ')
+    case 'RiCodeLine':
+      return insertLinesAtStartAndEnd('```')
+    case 'RiTable3':
+      return applyTableStyle()
+    case 'RiLinkM':
+      return applyLinkStyle()
+    case 'RiImageLine':
+      return applyImageStyle()
     default:
       console.warn(`未处理工具类型: ${tool}`);
       return false; // 返回操作结果
@@ -429,7 +665,25 @@ const doEdit = (tool) => {
 
 const toolBar = ref([
   {
-    iconName:'RiHeading'
+    iconName:'RiArrowGoBackLine',
+    unable:computed(()=>{
+      return undoStack.value.length < 2
+    }),
+    click: () => {
+      undo()
+    }
+  },
+  {
+    iconName:'RiArrowGoForwardLine',
+    unable:computed(()=>{
+      return redoStack.value.length < 1
+    }),
+    click: () => {
+      redo()
+    }
+  },
+  {
+    iconName:'RiHeading',
   },
   {
     iconName:'RiBold'
@@ -466,16 +720,8 @@ const toolBar = ref([
   }
 ])
 
-onMounted(() => {
-  updateWidth()
-})
-
 const calc_text_length = ref(null)
 const inputWidth = ref('10')
-
-
-
-
 
 const updateWidth = () => {
   inputWidth.value = calc_text_length.value?.offsetWidth || '10'
@@ -506,6 +752,55 @@ const changeStyle = () => {
   proxy.$constants.DARK = !proxy.$constants.DARK // 更新全局状态
   localStorage.setItem('isDark', proxy.$constants.DARK)
   document.body.classList.toggle('dark', proxy.$constants.DARK)
+}
+
+
+
+
+// 撤销和重做逻辑
+const undoStack = ref([]);
+const redoStack = ref([]);
+const snapshotMax = 100; // 最大撤销步数
+
+// 保存当前状态到撤销栈
+function saveSnapshot() {
+  const r_index = curRange.value?.endIndex || textLines.value.length-1
+  const r_offset = curRange.value?.endOffset || textLines.value[textLines.value?.length-1]?.length
+
+  undoStack.value.push({
+    v:JSON.stringify(textLines.value),
+    r:[r_index,r_offset]
+  });
+  if (undoStack.value.length > snapshotMax) {
+    undoStack.value.shift(); // 限制栈大小
+  }
+  redoStack.value = []; // 清空重做栈
+}
+
+// 撤销
+function undo() {
+  if (undoStack.value.length === 1) return;
+  const snapshot = undoStack.value.pop();
+  const lastValue = undoStack.value[undoStack.value.length - 1]
+  redoStack.value.push(snapshot);
+  textLines.value = JSON.parse(lastValue.v);
+  mdText.value = textLines.value.join('\n');
+  nextTick(()=>{
+    updateRange(lastValue.r[0],lastValue.r[1])
+  })
+  
+}
+
+// 重做
+function redo() {
+  if (redoStack.value.length === 0) return;
+  const snapshot = redoStack.value.pop();
+  undoStack.value.push(snapshot);
+  textLines.value = JSON.parse(snapshot.v);
+  mdText.value = textLines.value.join('\n');
+  nextTick(()=>{
+    updateRange(snapshot.r[0],snapshot.r[1])
+  })
 }
 
 
