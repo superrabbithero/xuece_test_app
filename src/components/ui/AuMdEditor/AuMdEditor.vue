@@ -38,9 +38,11 @@
             @pointerdown="editorAreaPointerDown"
             @input="handleInput"
             @paste="handlePaste"
-            @compositionend="handleCompositionEnd">
+            @compositionend="handleCompositionEnd"
+            @dragstart="handleDragStart"
+            @drop="handleDrop">
             <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
-            >{{ line }}</div>
+            >{{ line?line:' ' }}</div>
           </div>
         </div>
         
@@ -68,7 +70,7 @@ import {ref, defineProps, onMounted, getCurrentInstance, nextTick, onUnmounted, 
 const { proxy } = getCurrentInstance()
 import { debounce } from 'lodash-es';
 
-const debug = false //打开监控数据
+const debug = true //打开监控数据
 
 //底部positon变量
 const rangePosition = computed(()=>{
@@ -137,7 +139,7 @@ const handleInput = (event) => {
     saveCursorPosition()
     nextTick(()=>{
       updateRange(curRange.value.endIndex,curRange.value.endOffset)
-      // mdText.value = textDiv.value.innerText
+
       syncMarkdown()
     })
   }
@@ -149,45 +151,43 @@ const handleCompositionEnd = () => {
   saveCursorPosition()
   nextTick(()=>{
     updateRange(curRange.value.endIndex,curRange.value.endOffset)
-    // mdText.value = textDiv.value.innerText
     syncMarkdown()
   })
+}
+
+const handleDragStart = (event) => {
+  event.preventDefault()
+}
+
+const handleDrop = (event) => {
+  requestAnimationFrame(() => {
+    saveCursorPosition()
+  });
+  event.preventDefault()
 }
 
 //自己写一个基于textLines的range
 const curRange = ref(null)
 
 const getRange = () => {
-  if(savedRange.startContainer.nodeType === Node.TEXT_NODE){
-    const startIndex = Number(savedRange.startContainer.parentElement.id.substring(5))
-    const startOffset = savedRange.startOffset
-    const endIndex = Number(savedRange.endContainer.parentElement.id.substring(5))
-    const endOffset = savedRange.endOffset
-    const collapsed = savedRange.collapsed
+  const startIndex = savedRange.startContainer.nodeType === Node.TEXT_NODE
+                   ? Number(savedRange.startContainer.parentElement.id.substring(5))
+                   : Number(savedRange.startContainer.id.substring(5))
+  const endIndex = savedRange.endContainer.nodeType === Node.TEXT_NODE
+                 ? Number(savedRange.endContainer.parentElement.id.substring(5))
+                 : Number(savedRange.endContainer.id.substring(5))
+  const startOffset = savedRange.startOffset
+  const endOffset = savedRange.endOffset
+  const collapsed = savedRange.collapsed
 
-    curRange.value = {
-      startIndex,
-      startOffset,
-      endIndex,
-      endOffset,
-      collapsed
-    }
-  }else{
-    const startIndex = Number(savedRange.startContainer.id.substring(5))
-    const startOffset = savedRange.startOffset
-    const endIndex = Number(savedRange.endContainer.id.substring(5))
-    const endOffset = savedRange.endOffset
-    const collapsed = savedRange.collapsed
-
-    curRange.value = {
-      startIndex,
-      startOffset,
-      endIndex,
-      endOffset,
-      collapsed
-    }
+  curRange.value = {
+    startIndex,
+    startOffset,
+    endIndex,
+    endOffset,
+    collapsed
+   
   }
-  
 }
 
 const updateRange = (lineIndex, offset) => {
@@ -314,7 +314,7 @@ const handleKeyDown = (event) => {
     rangeIndex = curRange.value.endIndex + 1
     rangeOffset = 0
     // 移动光标到换行后
-  }else if(event.ctrlKey || event.shiftKey || event.metaKey){
+  }else if(event.ctrlKey || event.shiftKey || event.metaKey || event.altKey){
     if((event.ctrlKey || event.shiftKey) && event.key == 'z'){
       event.preventDefault()
       undo()
@@ -324,6 +324,9 @@ const handleKeyDown = (event) => {
       redo()
     }
     return
+  }else if(event.key.startsWith('Arrow')){
+    event.preventDefault
+    saveCursorPosition()
   }else{
     if(!curRange.value.collapsed){
       deleteContents()
@@ -448,7 +451,6 @@ const insertLinesAtCursor = (text) => {
 
   nextTick(()=>{
     updateRange(index,offset)
-    // mdText.value = textDiv.value.innerText
     syncMarkdown()
   })
 }
@@ -479,7 +481,6 @@ const insertLinesAtBefore = (text) => {
 
   nextTick(()=>{
     updateRange(curRange.value.startIndex,0)
-    // mdText.value = textDiv.value.innerText
     syncMarkdown()
   })
 }
@@ -505,7 +506,6 @@ const insertLinesAtStartAndEnd = (text) => {
     textLines.value.splice(start,0,text)
     nextTick(()=>{
     updateRange(curRange.value.startIndex,0)
-    // mdText.value = textDiv.value.innerText
     syncMarkdown()
   })
   }else if(text == '```'){
@@ -518,7 +518,7 @@ const insertLinesAtStartAndEnd = (text) => {
     textLines.value[start] = newLine   
     nextTick(()=>{
       updateRange(start,endOffset+1)
-      // mdText.value = textDiv.value.innerText
+
       syncMarkdown()
     })           
   }
@@ -812,6 +812,7 @@ function redo() {
 .text-line-position {
   position: fixed;
   bottom: 10px;
+  right: 0;
 }
 
 </style>

@@ -30,6 +30,7 @@
   height: 100%;
   overflow: auto;
   position: relative;
+  width: 100%;
 }
 
 .editor-container{
@@ -141,7 +142,7 @@
   min-height: 1.5rem;
   background-color: field;
   white-space: pre-wrap;
-
+  word-break: break-all; /*  纯数字的换行问题*/
   position: relative;
   
 }
