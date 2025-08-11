@@ -68,7 +68,7 @@ const routes = [
         }
     },
     {
-        path: '/post/:id',
+        path: '/post/viewer/:id',
         name: '文章',
         component: () => import("@/components/PostPage"),
         props:true,
@@ -77,16 +77,32 @@ const routes = [
         }
     },
     {
-        path: '/post/editor/:id',
+        path: '/post/editor/:id?',
         name: '编辑文章',
         component: () => import("@/components/MarkdownEditor"),
-        props:true,
+        props:false,
         meta:{
             title: '编辑文章',
             footerHidden: true,
             headerHidden: true
         }
-    }
+    },
+    {
+        path: '/post',
+        name: '学测WiKi',
+        component: () => import("@/components/PostHome"),
+        meta:{
+            title: '学测WiKi',
+        }
+    },
+    {
+        path: '/post/creator',
+        name: '创作中心',
+        component: () => import("@/components/CreatorCenter"),
+        meta:{
+            title: '创作中心',
+        }
+    },
 ]
 
 const router = createRouter({

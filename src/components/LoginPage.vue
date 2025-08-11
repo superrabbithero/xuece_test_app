@@ -8,6 +8,7 @@
              <!-- <RiHeartFill size="36px" color="red" /> -->
             <h1>Login</h1>
           </div>
+
           <div class="cols s12 center">
             <label>账号：
               <input type="text" placeholder="请输入账号" v-model="userData.user_name" style="width: 150px;">
@@ -18,8 +19,9 @@
               <input type="password" placeholder="请输入密码" v-model="userData.password" style="width: 150px;">
             </label>
           </div>
-          <div class="cols s12 end" style="margin-right: 50px;">
-            <input type="button" class="fill" value="登  录" @click="handleLogin">
+          <div class="cols s12 end" style="margin-right: 50px; gap:1rem">
+            <au-button value="返回" size="small" @click="router.go(-1)"></au-button>
+            <au-button variant="filled" size="small" @click="handleLogin" value="登  录"></au-button>
           </div>
         </div>
       </div>

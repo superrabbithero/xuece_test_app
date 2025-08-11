@@ -180,17 +180,23 @@ const rippleEffect = (e) => {
 /*circle*/
 .au-button.circle.small{
     width: 32px;
-    border-radius:16px
+    height: 32px;
+    padding: 0;
+    border-radius:50%
 }
 
 .au-button.circle.medium{
     width: 40px;
-    border-radius:20px
+    height:40px;
+    padding: 0;
+    border-radius:50%
 }
 
 .au-button.circle.large{
     width: 48px;
-    border-radius:24px
+    height: 48px;
+    padding: 0;
+    border-radius:50%
 }
 
 

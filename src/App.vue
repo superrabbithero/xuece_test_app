@@ -19,7 +19,11 @@
                 <icon-wrapper name="RiArtboard2Line"  size="19" />
                 白板工具
               </div>
-              
+              <div class="menu-item" @click="goto('/post')">
+                <!-- <icon-wrapper name="RiCommandLine"  size="19" /> -->
+                <icon-wrapper name="RiBook2Line"  size="19" />
+                学测WiKi
+              </div>
               <!-- <div class="menu-item" >
                 <svg-icon name="roadblock11" />
                 待定...

@@ -29,7 +29,7 @@
     <div class="editor-area" ref="editorArea">
       <div class="editor-container" v-show="editorViewer != 2 " >
         <div class="editor">
-          <div class="edited-dom hidden" >
+          <div class="edited-dom hidden" v-if="show_line_num" >
             <div v-for="(line,index) in textLines" :key="index" class="text-line"
             ><div class="line-num">{{index+1}}</div>{{ line }}</div>
           </div>
@@ -39,10 +39,11 @@
             @input="handleInput"
             @paste="handlePaste"
             @compositionend="handleCompositionEnd"
+            @compositionstart="handleCompositionStart"
             @dragstart="handleDragStart"
             @drop="handleDrop">
             <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
-            >{{ line?line:' ' }}</div>
+            >{{ line }}<br v-show="!line"></div>
           </div>
         </div>
         
@@ -71,6 +72,8 @@ const { proxy } = getCurrentInstance()
 import { debounce } from 'lodash-es';
 
 const debug = true //打开监控数据
+
+const show_line_num = true
 
 //底部positon变量
 const rangePosition = computed(()=>{
@@ -130,24 +133,38 @@ const textDiv = ref(null)
 
 const textLines = ref(['# 标题'])
 
+// 更安全的输入法输入判断
+const isIMEInput = ref(false) // 标记是否处于输入法组合输入状态
+
+const handleCompositionStart = () => {
+  isIMEInput.value = true
+}
+
 //编辑器每行的input事件
 const handleInput = (event) => {
-
-  if(!event.isComposing){
+  console.log(event.isComposing)
+  if(!event.isComposing && !isIMEInput.value){
     const content = curSelection.value.focusNode.data
+    console.log(content)
     textLines.value[curRange.value.endIndex] = content
+    console.log(1)
     saveCursorPosition()
     nextTick(()=>{
       updateRange(curRange.value.endIndex,curRange.value.endOffset)
-
       syncMarkdown()
     })
+  }else{
+    console.log('在使用输入法')
   }
 }
 
 const handleCompositionEnd = () => {
+  console.log('handleCompositionEnd')
+  isIMEInput.value = false
   const content = curSelection.value.focusNode.data
+  console.log(content)
   textLines.value[curRange.value.endIndex] = content
+  console.log(2)
   saveCursorPosition()
   nextTick(()=>{
     updateRange(curRange.value.endIndex,curRange.value.endOffset)
@@ -161,6 +178,7 @@ const handleDragStart = (event) => {
 
 const handleDrop = (event) => {
   requestAnimationFrame(() => {
+    console.log(3)
     saveCursorPosition()
   });
   event.preventDefault()
@@ -201,10 +219,13 @@ const updateRange = (lineIndex, offset) => {
       textNode = lineNode?.firstChild
       relOffset = offset
     }
+    if(textLines.value[lineIndex] == '')
+      relOffset = 0
     newRange.setStart(textNode, relOffset)
     newRange.setEnd(textNode, relOffset)
     curSelection.value.removeAllRanges(); // 清除现有选区
     curSelection.value.addRange(newRange);   // 设置新选区
+    console.log(4)
     saveCursorPosition()
   }
   
@@ -251,9 +272,13 @@ const deleteContents = () => {
 const handleKeyDown = (event) => {
 
   if(event.key == 'Process'){
+    console.log('keydown_process')
+    event.preventDefault
+    // saveCursorPosition()
     return
   }
   requestAnimationFrame(() => {
+    console.log(5)
     saveCursorPosition()
   });
   
@@ -326,6 +351,7 @@ const handleKeyDown = (event) => {
     return
   }else if(event.key.startsWith('Arrow')){
     event.preventDefault
+    console.log(6)
     saveCursorPosition()
   }else{
     if(!curRange.value.collapsed){
@@ -545,6 +571,7 @@ const editorAreaPointerup = () => {
   //获得当前selection数据
   console.log(curSelection)
   if(isRanging){
+    console.log(7)
     saveCursorPosition()
   }
   isRanging = false
@@ -570,7 +597,6 @@ const changeViewer = ()=>{
 let savedRange = null;
 // 保存当前光标位置
 const saveCursorPosition = () => {
-  
   curSelection.value = window.getSelection();
   savedRange = curSelection.value.getRangeAt(0);
   getRange()
@@ -627,7 +653,7 @@ const applyLinkStyle = (data='#') => {
 }
 
 const applyTableStyle = () => {
-  insertLinesAtCursor('|  |  |\n|--|--|\n|  |  |')
+  insertLinesAtCursor('\n|  |  |\n|--|--|\n|  |  |')
 }
 
 
@@ -804,10 +830,195 @@ function redo() {
 }
 
 
+
 </script>
 
-<style lang="css" scoped>
-@import './index.css';
+<style scoped>
+.au-md-editor-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap:4px;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.editor-area{
+  display: flex;
+  gap: 4px;
+  height: 100%;
+  overflow: auto;
+}
+
+.editor-container, .preview {
+  border-radius: 5px;
+  
+  flex-basis: 100%;
+  box-sizing: border-box; 
+  border: var(--box-border);
+  height: calc(100vh - 60px);
+  background-color: field;
+  padding: 10px;
+}
+
+.editor{
+  height: 100%;
+  overflow: auto;
+  position: relative;
+  width: 100%;
+}
+
+.editor-container{
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0 0 0 ;
+}
+
+.editor-footer-bar {
+  height: 1.5rem;
+  line-height: 1.5rem;
+  font-size: 0.7rem;
+  font-weight: 100;
+  font-family: auto;
+  background-color: #0002;
+  padding: 0 10px;
+/*  opacity: 0.5;*/
+}
+
+.editor textarea{
+  width: 100%;
+  height: 100%;
+  /* 重置默认样式 */
+  padding: 10px;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none; /* 禁止用户调整大小 */
+  box-sizing: border-box; 
+  font-size: 16px;
+}
+
+.preview {
+  
+  background-color: var(--box-bgc);
+  overflow: auto;
+  
+}
+
+.tool-bar{
+  user-select: none;
+  height:3rem;
+  padding: 5px 6px;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--box-bgc);
+  border: var(--box-border);
+  border-radius: 5px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between
+}
+
+
+.tool-bar-item {
+  height: 32px;
+  width: 32px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-bar-item.unable {
+  opacity: 0.5;
+  pointer-events: none;  /* 禁止鼠标/触摸事件 */
+  user-select: none;     /* 禁止文本选中 */
+}
+
+.tool-bar-item:hover {
+  background-color: #5551;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+}
+
+.file-name-input {
+  max-width: 100%;
+  min-width: 2ch;
+  border: none;
+  outline: none;
+  margin: 0;
+  padding: 0 8px;
+  font-size: 18px;
+  border-radius: 2px;
+  height: 32px;
+/*  box-sizing: border-box;*/
+  margin-left: 4px;
+}
+
+.file-name-input:hover,.file-name-input:focus {
+  background-color: #5551;
+  outline: none;
+  border: none;
+}
+
+.hide-span {
+  position: absolute;
+  visibility: hidden;
+  left:-9999px;
+  top: -9999px;
+  font-size: 18px;
+  white-space: pre
+}
+
+.text-line {
+  width: 100%;
+  line-height: 1.5rem;
+  min-height: 1.5rem;
+  background-color: field;
+  white-space: pre-wrap;
+  word-break: break-all; /*  纯数字的换行问题*/
+  position: relative;
+  
+}
+
+
+
+.edited-dom {
+  font-family: auto;
+  outline: none ;
+  width: calc(100% - 10px);
+  min-height: calc(100% - 10px);
+  padding-left: 80px;
+  box-sizing: border-box;
+}
+
+.edited-dom.hidden{
+  position: absolute;
+  visibility: hidden;
+  min-width: 0;
+}
+
+.line-num {
+  user-select: none;
+  position: absolute;
+  visibility: visible;
+  width: 9ch;
+  left: -80px;
+  z-index: 1;
+  text-align: center;
+  color:var(--color-prettylights-syntax-comment);
+  font-family: auto;
+  line-height: 1.5rem;
+  min-height: 1.5rem;
+
+}
+
+
 
 .text-line-position {
   position: fixed;
