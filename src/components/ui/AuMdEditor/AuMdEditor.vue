@@ -42,8 +42,8 @@
             @compositionstart="handleCompositionStart"
             @dragstart="handleDragStart"
             @drop="handleDrop">
-            <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`"
-            >{{ line }}<br v-show="!line"></div>
+            <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`" v-html="line === '' ? '<br>' : escapeHtml(line)">
+            </div>
           </div>
         </div>
         
@@ -74,6 +74,17 @@ import { debounce } from 'lodash-es';
 const debug = true //打开监控数据
 
 const show_line_num = true
+
+//转义，用于在v-html中展示
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")   // 先转义 &
+    .replace(/</g, "&lt;")    // 再转义 <
+    .replace(/>/g, "&gt;")    // 再转义 >
+    .replace(/"/g, "&quot;")  // 可选：转义 "
+    .replace(/'/g, "&#39;");  // 可选：转义 '
+}
+
 
 //底部positon变量
 const rangePosition = computed(()=>{
@@ -142,29 +153,22 @@ const handleCompositionStart = () => {
 
 //编辑器每行的input事件
 const handleInput = (event) => {
-  console.log(event.isComposing)
+
   if(!event.isComposing && !isIMEInput.value){
     const content = curSelection.value.focusNode.data
-    console.log(content)
     textLines.value[curRange.value.endIndex] = content
-    console.log(1)
     saveCursorPosition()
     nextTick(()=>{
       updateRange(curRange.value.endIndex,curRange.value.endOffset)
       syncMarkdown()
     })
-  }else{
-    console.log('在使用输入法')
   }
 }
 
 const handleCompositionEnd = () => {
-  console.log('handleCompositionEnd')
   isIMEInput.value = false
   const content = curSelection.value.focusNode.data
-  console.log(content)
   textLines.value[curRange.value.endIndex] = content
-  console.log(2)
   saveCursorPosition()
   nextTick(()=>{
     updateRange(curRange.value.endIndex,curRange.value.endOffset)
@@ -178,7 +182,6 @@ const handleDragStart = (event) => {
 
 const handleDrop = (event) => {
   requestAnimationFrame(() => {
-    console.log(3)
     saveCursorPosition()
   });
   event.preventDefault()
@@ -198,40 +201,171 @@ const getRange = () => {
   const endOffset = savedRange.endOffset
   const collapsed = savedRange.collapsed
 
+  const des = startIndex <= endIndex
+
   curRange.value = {
-    startIndex,
-    startOffset,
-    endIndex,
-    endOffset,
+    startIndex: des?startIndex:endIndex,
+    startOffset: des?startOffset:endOffset,
+    endIndex:des?endIndex:startIndex,
+    endOffset:des?endOffset:startOffset,
     collapsed
-   
   }
 }
 
-const updateRange = (lineIndex, offset) => {
-  if(curSelection?.value){
-    //刷新光标位置
-    const newRange = document.createRange()
-    const lineNode = document.getElementById(`line-${lineIndex}`)
-    let textNode = lineNode
-    let relOffset = 0
-    if(lineNode?.firstChild){
-      textNode = lineNode?.firstChild
-      relOffset = offset
-    }
-    if(textLines.value[lineIndex] == '')
-      relOffset = 0
-    newRange.setStart(textNode, relOffset)
-    newRange.setEnd(textNode, relOffset)
-    curSelection.value.removeAllRanges(); // 清除现有选区
-    curSelection.value.addRange(newRange);   // 设置新选区
-    console.log(4)
-    saveCursorPosition()
+
+// 要点说明：
+
+// 我们不再依赖 lineNode.firstChild 必须是文本节点；即使是 <br> 或其它元素也 OK。
+
+// 若你的 offset 是基于 textLines[lineIndex].length（纯文本长度）的，那就不把 <br> 计入长度（上面实现就是这样）。
+
+// 如果你希望空行时光标出现在 <br> 之后，把 resolveCaretPosition 里有子节点时的返回从 { node: lineNode, offset: 0 } 改成 { node: lineNode, offset: lineNode.childNodes.length } 即可。
+
+
+function resolveCaretPosition(lineNode, target) {
+  // 快速路径：第一个就是文本节点
+  if (lineNode.firstChild && lineNode.firstChild.nodeType === Node.TEXT_NODE) {
+    const len = lineNode.firstChild.nodeValue.length;
+    const off = Math.max(0, Math.min(target ?? 0, len));
+    return { node: lineNode.firstChild, offset: off };
   }
-  
+
+  // 单次遍历文本节点，边走边累计；记录最后一个文本节点
+  const walker = document.createTreeWalker(lineNode, NodeFilter.SHOW_TEXT, null);
+  let acc = 0, n, last = null;
+  const tgt = Math.max(0, target ?? 0);
+
+  while ((n = walker.nextNode())) {
+    const len = n.nodeValue.length;
+    if (tgt <= acc + len) {
+      return { node: n, offset: tgt - acc };
+    }
+    acc += len;
+    last = n;
+  }
+
+  // 没有文本节点：若有子节点（可能是 <br>），放到行首；否则补空文本节点
+  if (!last) {
+    if (lineNode.firstChild) return { node: lineNode, offset: 0 };
+    const t = document.createTextNode('');
+    lineNode.appendChild(t);
+    return { node: t, offset: 0 };
+  }
+
+  // 目标超过文本总长，落到最后一个文本节点的末尾
+  return { node: last, offset: last.nodeValue.length };
 }
+
+// const updateRange = (lineIndex, offset) => {
+//   if (!curSelection?.value) return;
+//   if (_lastCaret.line === lineIndex && _lastCaret.off === offset) return; // 去重
+
+//   const lineNode = document.getElementById(`line-${lineIndex}`);
+//   if (!lineNode) return;
+
+//   const { node, offset: rel } = resolveCaretPosition(lineNode, offset);
+
+//   const rng = document.createRange();
+//   rng.setStart(node, rel);
+//   rng.collapse(true);
+
+//   curSelection.value.removeAllRanges();
+//   curSelection.value.addRange(rng);
+
+//   _lastCaret = { line: lineIndex, off: offset };
+//   saveCursorPosition();
+// };
+
+let _lastCaret = { line: -1, off: -1 };
+let _lastRange = { sLine: -1, sOff: -1, eLine: -1, eOff: -1 };
+
+/**
+ * 用法：
+ *  updateRange(lineIndex, offset)                            // 设置插入光标
+ *  updateRange(startLineIndex, startOffset, endLineIndex, endOffset) // 设置选区
+ */
+const updateRange = (a, b, c, d) => {
+  if (!curSelection?.value) return;
+
+  const isCaret = (typeof c === 'undefined' && typeof d === 'undefined');
+
+
+  if (isCaret) {
+    // ---- 光标模式 ----
+    const lineIndex = a | 0;
+    const offset    = b | 0;
+
+    if (_lastCaret.line === lineIndex && _lastCaret.off === offset) return;
+
+    const lineNode = document.getElementById(`line-${lineIndex}`);
+    if (!lineNode) return;
+
+    const { node, offset: rel } = resolveCaretPosition(lineNode, offset);
+
+    const rng = document.createRange();
+    rng.setStart(node, rel);
+    rng.collapse(true);
+
+    curSelection.value.removeAllRanges();
+    curSelection.value.addRange(rng);
+
+    _lastCaret = { line: lineIndex, off: offset };
+    _lastRange = { sLine: -1, sOff: -1, eLine: -1, eOff: -1 }; // 失效选区缓存
+    saveCursorPosition();
+    return;
+  }
+
+  // ---- 选区模式 ----
+  let startLineIndex = a | 0;
+  let startOffset    = b | 0;
+  let endLineIndex   = c | 0;
+  let endOffset      = d | 0;
+
+  // 行索引钳制到合法范围
+  const lastLine = Math.max(0, textLines.value.length - 1);
+  startLineIndex = Math.max(0, Math.min(startLineIndex, lastLine));
+  endLineIndex   = Math.max(0, Math.min(endLineIndex,   lastLine));
+
+  // 规范化顺序：确保 (start <= end)
+  if (
+    startLineIndex > endLineIndex ||
+    (startLineIndex === endLineIndex && startOffset > endOffset)
+  ) {
+    [startLineIndex, endLineIndex] = [endLineIndex, startLineIndex];
+    [startOffset, endOffset] = [endOffset, startOffset];
+  }
+
+  if (
+    _lastRange.sLine === startLineIndex && _lastRange.sOff === startOffset &&
+    _lastRange.eLine === endLineIndex   && _lastRange.eOff === endOffset
+  ) return;
+
+  const sLineNode = document.getElementById(`line-${startLineIndex}`);
+  const eLineNode = document.getElementById(`line-${endLineIndex}`);
+  if (!sLineNode || !eLineNode) return;
+
+  const s = resolveCaretPosition(sLineNode, startOffset);
+  const e = resolveCaretPosition(eLineNode, endOffset);
+
+
+  const rng = document.createRange();
+  rng.setStart(s.node, s.offset);
+  rng.setEnd(e.node, e.offset);
+
+  curSelection.value.removeAllRanges();
+  curSelection.value.addRange(rng);
+
+  _lastRange = { sLine: startLineIndex, sOff: startOffset, eLine: endLineIndex, eOff: endOffset };
+  _lastCaret = { line: -1, off: -1 }; // 失效光标缓存
+  saveCursorPosition();
+}
+
+
 
 const deleteContents = () => {
+
+
+
   if(curRange.value.collapsed)
     return;
 
@@ -272,13 +406,11 @@ const deleteContents = () => {
 const handleKeyDown = (event) => {
 
   if(event.key == 'Process'){
-    console.log('keydown_process')
     event.preventDefault
     // saveCursorPosition()
     return
   }
   requestAnimationFrame(() => {
-    console.log(5)
     saveCursorPosition()
   });
   
@@ -332,11 +464,15 @@ const handleKeyDown = (event) => {
     //在当前位置插入换行符
     if(!curRange.value.collapsed)
       deleteContents()
-    
-    const nextLines = textLines.value[curRange.value.endIndex].substring(curRange.value.endOffset) || ''
-    textLines.value[curRange.value.endIndex] = `${textLines.value[curRange.value.endIndex].substring(0,curRange.value.endOffset)}` || ''
-    textLines.value.splice(curRange.value.endIndex+1, 0 ,nextLines)
-    rangeIndex = curRange.value.endIndex + 1
+
+
+    const nextLines = textLines.value[curRange.value.startIndex]?.substring(curRange.value.startOffset) || ''
+
+
+
+    textLines.value[curRange.value.startIndex] = `${textLines.value[curRange.value.startIndex]?.substring(0,curRange.value.startOffset)}` || ''
+    textLines.value.splice(curRange.value.startIndex+1, 0 ,nextLines)
+    rangeIndex = curRange.value.startIndex + 1
     rangeOffset = 0
     // 移动光标到换行后
   }else if(event.ctrlKey || event.shiftKey || event.metaKey || event.altKey){
@@ -351,15 +487,15 @@ const handleKeyDown = (event) => {
     return
   }else if(event.key.startsWith('Arrow')){
     event.preventDefault
-    console.log(6)
     saveCursorPosition()
   }else{
     if(!curRange.value.collapsed){
       deleteContents()
       ifUpdateRange = false
-    }else{
-      return
     }
+    // else{
+    //   return
+    // }
   }
   if(ifUpdateRange)
     nextTick(()=>{
@@ -440,43 +576,59 @@ let imgeList = []
 //   
 // }
 
-const insertLinesAtCursor = (text) => {
+const insertLinesAtCursor = (text, selectRange) => {
   // saveCursorPosition()
   // let ifUpdateRange = true
+  let _text = text
+  let s = curRange.value.startIndex
+  let e = 0
+  let s_off = curRange.value.startOffset
+  let e_off = 0
+  let updateSelected = false
+  
+
+
 
   if(!curRange.value.collapsed){
+    if(selectRange){
+      updateSelected = true
+      s_off += selectRange[0]
+      const content = curSelection.value.toString()
+      _text = `${_text.substring(0,selectRange[0])}${content}${_text.substring(selectRange[1])}`
+    }
     deleteContents();
     // ifUpdateRange = false
   }
 
-  
-  const lines = text.split(/\r?\n/);
-
-
-  let offset = 0
-  let index = 0
+  const lines = _text.split(/\r?\n/);
 
   if(lines.length == 0)
     return
   else if(lines.length == 1){
-    index = curRange.value.endIndex
-    const text = textLines.value[curRange.value.endIndex] 
-    offset = curRange.value.startOffset + lines[0].length
-    const result = text.substring(0,curRange.value.startOffset) + lines[0] + text.substring(curRange.value.startOffset)
+    e = curRange.value.endIndex
+    const etext = textLines.value[curRange.value.endIndex] 
+    e_off = selectRange
+          ? curRange.value.startOffset + lines[0].length - selectRange[0]
+          : curRange.value.startOffset + lines[0].length
+    const result = etext.substring(0,curRange.value.startOffset) + lines[0] + etext.substring(curRange.value.startOffset)
     textLines.value[curRange.value.startIndex] = result
   }else{
-    const text = textLines.value[curRange.value.endIndex] 
-    textLines.value[curRange.value.endIndex] = text.substring(0,curRange.value.startOffset) + lines[0]
-    const lastLine = lines[lines.length - 1] + text.substring(curRange.value.endOffset)
-    textLines.value.splice(curRange.value.endIndex+1,0,lastLine)
+    const etext = textLines.value[curRange.value.startIndex] 
+    textLines.value[curRange.value.startIndex] = etext.substring(0,curRange.value.startOffset) + lines[0]
+    const lastLine = lines[lines.length - 1] + etext.substring(curRange.value.startOffset)
+    textLines.value.splice(curRange.value.startIndex+1,0,lastLine)
     if(lines.slice(1,-1).length > 0)
-      textLines.value.splice(curRange.value.endIndex+1,0,...lines.slice(1,-1))
-    index = curRange.value.endIndex + lines.length - 1
-    offset = lines[lines.length - 1].length
+      textLines.value.splice(curRange.value.startIndex+1,0,...lines.slice(1,-1))
+    updateSelected = true
+    e = curRange.value.startIndex + lines.length - 1
+    e_off = lines[lines.length - 1].length - selectRange[0]
   }
 
   nextTick(()=>{
-    updateRange(index,offset)
+    if(updateSelected)
+      updateRange(s,s_off,e,e_off)
+    else
+      updateRange(e,e_off)
     syncMarkdown()
   })
 }
@@ -526,33 +678,54 @@ const insertLinesAtStartAndEnd = (text) => {
     endOffset = curRange.value.startOffset;
   }
 
-  if(start != end || curRange.value.collapsed){
+  const singleLine = start == end && startOffset == 0 && endOffset == textLines.value[end].length
+
+  if(start != end || curRange.value.collapsed || singleLine){
     //选择多行，且非光标，则整段前后插入
-    textLines.value.splice(end+1,0,text)
-    textLines.value.splice(start,0,text)
-    nextTick(()=>{
-    updateRange(curRange.value.startIndex,0)
-    syncMarkdown()
-  })
+    if(textLines.value[start-1]+textLines.value[end+1] == `${text}${text}`){
+      textLines.value.splice(end+1,1)
+      textLines.value.splice(start-1,1)
+      nextTick(()=>{
+        const eOff = textLines.value[end-1].length
+        updateRange(start-1,0,end-1,eOff)
+        syncMarkdown()
+      })
+    }else{
+      textLines.value.splice(end+1,0,text)
+      textLines.value.splice(start,0,text)
+      nextTick(()=>{
+        const eOff = textLines.value[end+1].length
+        updateRange(start+1,0,end+1,eOff)
+        syncMarkdown()
+      })
+    }
+      
   }else if(text == '```'){
     const line = textLines.value[start]
-    const newLine = line.slice(0,startOffset) 
-                  + '`' 
-                  + line.slice(startOffset,endOffset)
-                  + '`'
-                  + line.slice(endOffset)
-    textLines.value[start] = newLine   
-    nextTick(()=>{
-      updateRange(start,endOffset+1)
-
-      syncMarkdown()
-    })           
+    if(line[startOffset-1]+line[endOffset] != '``' ){
+      const newLine = line.slice(0,startOffset) 
+                    + '`' 
+                    + line.slice(startOffset,endOffset)
+                    + '`'
+                    + line.slice(endOffset)
+      textLines.value[start] = newLine  
+      nextTick(()=>{
+        updateRange(start,startOffset+1,end,endOffset+1)
+        syncMarkdown()
+      })
+    }else{
+      const newLine = line.slice(0,startOffset-1) 
+                    + line.slice(startOffset,endOffset)
+                    + line.slice(endOffset+1)
+      textLines.value[start] = newLine  
+      nextTick(()=>{
+        updateRange(start,startOffset-1,end,endOffset-1)
+        syncMarkdown()   
+      })   
+    }   
+            
   }
 
-  
-  
-
-  
 }
 
 const curSelection = ref(null)
@@ -569,9 +742,7 @@ const editorAreaPointerDown = () => {
 //获得光标的坐标
 const editorAreaPointerup = () => {
   //获得当前selection数据
-  console.log(curSelection)
   if(isRanging){
-    console.log(7)
     saveCursorPosition()
   }
   isRanging = false
@@ -604,9 +775,8 @@ const saveCursorPosition = () => {
 
 // 插入文本（支持替换选中内容）
 const insertText = (text,selectRange=null) => {
-  console.log(selectRange)
   if(curRange.value){
-    insertLinesAtCursor(text)
+    insertLinesAtCursor(text, selectRange)
   }
   
 };
