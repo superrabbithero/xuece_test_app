@@ -52,6 +52,38 @@ export async function uploadToOSS(file, path, stsToken) {
 }
 
 /**
+ * 上传文件到OSS
+ * @param {File} file - 要上传的文件对象
+ * @param {string} key - 预留的key (如 'packages/subdir/')
+ * @param {Object} stsToken - STS凭证
+ * @returns {Promise<{url: string, name: string}>} 上传结果
+ */
+export async function uploadToOSSByKey(file, key, stsToken) {
+  try {
+    const client = initOSSClient(stsToken);
+    // const offset = key.lastIndexOf("/")
+    // const fileName = key.substring(offset)
+    // const path = key.substring(0, offset)
+    // console.log(fileName,path)
+
+    // 打印调试信息
+    console.log('开始上传，文件名:', key);
+    console.log('OSS 配置:', client.options);
+    
+    const result = await client.put(key, file);
+    console.log('OSS 上传结果：', result)
+    return {
+      url: result.url,
+      name: file.name,
+      key:key
+    };
+  } catch (error) {
+    console.error('OSS上传失败:', error);
+    throw error;
+  }
+}
+
+/**
  * 分片上传文件到 OSS（支持进度回调）
  * @param {File} file - 要上传的文件
  * @param {string} path - 存储路径（如 'uploads/'）

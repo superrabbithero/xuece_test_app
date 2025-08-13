@@ -80,7 +80,7 @@ const routes = [
         path: '/post/editor/:id?',
         name: '编辑文章',
         component: () => import("@/components/MarkdownEditor"),
-        props:false,
+        props:true,
         meta:{
             title: '编辑文章',
             footerHidden: true,

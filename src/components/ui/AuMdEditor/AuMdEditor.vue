@@ -21,14 +21,18 @@
           <au-icon v-show="editorViewer == 1" name="RiLayoutColumnFill" size="22"/>
           <au-icon v-show="editorViewer == 2" name="RiLayoutLeft2Line" size="22"/>
         </div>
-        <div class="tool-bar-item" @click="changeStyle()">
-          <au-icon name="RiContrast2Line" size="22"/>
+        <div class="tool-bar-item" @click="save">
+          <au-icon name="RiSaveLine" size="22"/>
+        </div>
+        <div class="tool-bar-item shake" @click="changeStyle()">
+          <au-icon v-show='!dark' name="RiSunFill" class="pointer-shake" size="20"/>
+          <au-icon v-show='dark' name="RiMoonFill" class="pointer-shake" size="18"/>
         </div>
       </div>
     </div>
     <div class="editor-area" ref="editorArea">
       <div class="editor-container" v-show="editorViewer != 2 " >
-        <div class="editor">
+        <div class="editor" ref="scrollHost">
           <div class="edited-dom hidden" v-if="show_line_num" >
             <div v-for="(line,index) in textLines" :key="index" class="text-line"
             ><div class="line-num">{{index+1}}</div>{{ line }}</div>
@@ -66,8 +70,13 @@
   </div>
 </template>
 <script setup>
-import { useRouter } from 'vue-router';
-import {ref, defineProps, onMounted, getCurrentInstance, nextTick, onUnmounted, computed} from 'vue';
+import imageApi from '@/api/endpoints/image'
+import {uploadToOSSByKey} from '@/api/ossApi.js'
+import oss from '@/api/endpoints/oss'
+import documentApi from '@/api/endpoints/document'
+
+import { useRouter,useRoute } from 'vue-router';
+import {ref, onMounted, getCurrentInstance, nextTick, onUnmounted, computed} from 'vue';
 const { proxy } = getCurrentInstance()
 import { debounce } from 'lodash-es';
 
@@ -75,14 +84,68 @@ const debug = true //打开监控数据
 
 const show_line_num = true
 
+const scrollHost = ref(null)
+
+const router = useRouter();
+const route = useRoute()
+
+
+// const props = defineProps({
+//   id: String // 自动接收路由参数
+// })
+
+
+
 //转义，用于在v-html中展示
 function escapeHtml(str) {
-  return str
-    .replace(/&/g, "&amp;")   // 先转义 &
-    .replace(/</g, "&lt;")    // 再转义 <
-    .replace(/>/g, "&gt;")    // 再转义 >
-    .replace(/"/g, "&quot;")  // 可选：转义 "
-    .replace(/'/g, "&#39;");  // 可选：转义 '
+  if(str)
+    return str
+      .replace(/&/g, "&amp;")   // 先转义 &
+      .replace(/</g, "&lt;")    // 再转义 <
+      .replace(/>/g, "&gt;")    // 再转义 >
+      .replace(/"/g, "&quot;")  // 可选：转义 "
+      .replace(/'/g, "&#39;");  // 可选：转义 '
+  else
+    return str
+}
+
+const doc_info = ref({})
+
+
+
+const save = async () => {
+  const path = process.env.NODE_ENV === 'development' ? 'test/documents' : 'documents'
+  
+  // 1. 将 mdText.value 转换为 File 对象
+  const createFileFromText = (text, fileName) => {
+    const blob = new Blob([text], { type: 'text/markdown' })
+    return new File([blob], fileName, { type: 'text/markdown' })
+  }
+
+  // 如果没有文档id，则调用接口创建文档数据获得文档id和预设的oss_key
+  if(!doc_info.value?.id){
+    // 这里默认一个user_id是4
+    const rst = await documentApi.reserve_doc(4, path)
+    doc_info.value = rst.data.data
+    console.log(doc_info.value)
+  }
+
+  // 2. 创建文件对象 - 使用文档id作为文件名或自定义文件名
+  const file = createFileFromText(mdText.value, 'temp.md')
+
+  // 通过oss_key上传md文件
+  if(doc_info.value?.oss_key){
+    const oss_token = await oss.getStsToken()
+    const rst = await uploadToOSSByKey(file, doc_info.value.oss_key, oss_token.data)
+
+    // .md文件上传成功后调用后台更新接口，更新更新时间
+    if(rst?.url) {
+      const rsp = await documentApi.update_doc(doc_info.value.id)
+      return rsp
+    } else {
+      return '文档上传oss失败'
+    }
+  }
 }
 
 
@@ -112,7 +175,12 @@ const paddingBottom = ref(10)
 
 let observer
 
+let doc_id = null
+
 onMounted(() => {
+
+  doc_id = route.params.id
+
   //调整filename输入框宽度
   updateWidth()
 
@@ -123,6 +191,15 @@ onMounted(() => {
 
   observer.observe(editorArea.value);
 
+  if(doc_id){
+    documentApi.get_doc(doc_id).then(rst => {
+      doc_info.value = rst.data.data
+      console.log(doc_info.value.oss_key)
+      fetchOssMd(doc_info.value.oss_key)
+    
+    })
+  }
+
   textDiv.value.focus()
 
   nextTick(()=>{
@@ -132,6 +209,19 @@ onMounted(() => {
 
   
 })
+const fetchOssMd = async (oss_key) => {
+    try{
+        const response = await fetch(`https://oss.superrabbithero.xyz/${oss_key}`)
+        if (!response.ok) throw new Error('文件加载失败');
+        const text = await response.text()
+        mdText.value = text || '文件加载失败'
+        textLines.value = text.split(/\r?\n/);
+    } catch (err) {
+        console.error('加载失败:', err);
+        return '文件加载失败'
+    }
+}
+
 
 onUnmounted(() => {
   syncMarkdown.cancel()
@@ -510,6 +600,24 @@ const handleKeyDown = (event) => {
 
 }
 
+const upload_image_to_oss = async (file) => {
+  const path = process.env.NODE_ENV === 'development' ? 'test/images/doc_img' : 'images/doc_img'
+  const r = await imageApi.reserve_img(file.name, path)
+  const img_data = r?.data?.data
+  console.log(img_data)
+  if(img_data?.oss_key){
+    imgeList.push(img_data)
+    const oss_token = await oss.getStsToken()
+    const rst = await uploadToOSSByKey(file,img_data.oss_key,oss_token.data)
+    if(rst?.url)
+      return rst.url
+    else
+      return '图片上传oss失败'
+  }else{
+    console.error('reserve图片失败')
+  }
+}
+
 
 //拦截contesteditable原生复制
 const handlePaste = (e) => {
@@ -519,16 +627,12 @@ const handlePaste = (e) => {
     // 检查第一个文件是否是图片
     const file = e.clipboardData.files[0];
     if (file.type.startsWith('image/')) {
-      const id = `${Date.now()}${Math.floor(Math.random() * 1000)}`
-      
-      convertBlobToBase64(file, (base64) => {
-        applyImageStyle(base64);
-        imgeList.push({
-          id:id,
-          url:base64,
-          uploaded:false,
-          deleted:false})
-      });
+      // const id = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+
+      upload_image_to_oss(file).then((url)=>{
+        applyImageStyle(url);
+      })
+
       return;
     }
   }
@@ -555,11 +659,11 @@ const handlePaste = (e) => {
 // }
 
 
-function convertBlobToBase64(blob, callback) {
-  const reader = new FileReader();
-  reader.onload = (e) => callback(e.target.result);
-  reader.readAsDataURL(blob);
-}
+// function convertBlobToBase64(blob, callback) {
+//   const reader = new FileReader();
+//   reader.onload = (e) => callback(e.target.result);
+//   reader.readAsDataURL(blob);
+// }
 
 //用于管理文档内的图片
 let imgeList = []
@@ -749,14 +853,9 @@ const editorAreaPointerup = () => {
   document.removeEventListener('pointerup', editorAreaPointerup)
 }
 
+const fileName = ref('新建文档')
 
 
-const props = defineProps({
-  fileName:{
-    type:String,
-    default:'新建文档'
-  }
-})
 
 
 //控制预览模式
@@ -928,9 +1027,7 @@ const handleKeyUp = (event) => {
   }
 };
 
-const router = useRouter();
 
-const fileName = ref(props.fileName)
 
 const goBack = () => {
   router.go(-1);
@@ -943,9 +1040,11 @@ const handleHeadingsUpdate = (list) => {
   headings.value = list
 }
 
+const dark = ref(proxy.$constants.DARK)
+
 const changeStyle = () => {
-  // isDark.value = !isDark.value
   proxy.$constants.DARK = !proxy.$constants.DARK // 更新全局状态
+  dark.value = proxy.$constants.DARK
   localStorage.setItem('isDark', proxy.$constants.DARK)
   document.body.classList.toggle('dark', proxy.$constants.DARK)
 }
@@ -1194,6 +1293,24 @@ function redo() {
   position: fixed;
   bottom: 10px;
   right: 0;
+}
+
+.editor-area::selection {
+  /*background-color: var(--main-color);
+  color : #fff*/
+}
+
+.tool-bar-item.shake{
+  background-color: inherit;
+}
+
+.pointer-shake{
+  transform: rotate(0deg);
+  transition: 0.3s transform ease-in-out;
+}
+
+.pointer-shake:hover {
+  transform: rotate(-15deg);
 }
 
 </style>
