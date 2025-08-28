@@ -41,6 +41,7 @@
       <div class="cols s12 gap"><h4>描述</h4></div>
       <div class="cols s12">
         <div>{{packageInfo.comment?packageInfo.comment:'-'}}</div>
+        <!-- {{packageInfo.plist_url}} -->
       </div>
     </div>
   </div>

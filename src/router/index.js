@@ -71,10 +71,7 @@ const routes = [
         path: '/post/viewer/:id',
         name: '文章',
         component: () => import("@/components/PostPage"),
-        props:true,
-        meta:{
-            title: '文章'
-        }
+        props:true
     },
     {
         path: '/post/editor/:id?',

@@ -115,7 +115,7 @@ const menuItems = [
 }
 
 .component-demo_config_content > label > *{
-	width: 100%;
+/*	width: 100%;*/
 	flex-grow: 1;
 }
 

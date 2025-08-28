@@ -9,7 +9,7 @@
                 
             </div>
         </transition>
-        <div 
+        <div style="width:fit-content;" 
             @pointerdown="handleHoverDown"
             @pointerup="handleHoverUp">
             <slot></slot>

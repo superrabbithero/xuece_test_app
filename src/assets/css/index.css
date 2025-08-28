@@ -1,4 +1,10 @@
 :root{
+  --skeleton-bgc:linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
   --dashed-color:#ccc;
   --select-bgc:#fff;
   --layout-bgc:#d3dce6;
@@ -25,6 +31,7 @@
   --handle-color:#fff;
   /*  边框hover的阴影样式 */
   --fontNormal:#363636;
+  --fontNormalHighlight:#363636;
   --font-lowlight:#bbb;
   --fontOpposite:#ffffffab;
   /*  常规*/
@@ -140,6 +147,12 @@ img {
     bottom: 0;
 }
 
+.no-style-container {
+    margin: 10px 0;
+    display: flex;
+    height: 100%;
+}
+
 .container {
     margin: 10px 0;
     padding: 10px 20px ;
@@ -158,6 +171,12 @@ img {
   }
 
 .dark{
+  --skeleton-bgc:linear-gradient(
+    90deg,
+    #383838 25%,    /* 深灰色 */
+    #4e4e4e 50%,    /* 中灰色 */
+    #383838 75%     /* 深灰色 */
+  );  
   --dashed-color:#555;
   --select-bgc:#212121;
   --layout-bgc  : #46494d;
@@ -173,6 +192,7 @@ img {
   --boxHoverShadow: none;
   --settingColor:#fff;
   --fontNormal:#ffffffab;
+  --fontNormalHighlight:#e5e5e5;
   --font-lowlight:#555;
   --fontOpposite:#363636;
   --icon-color:#ffffffab;

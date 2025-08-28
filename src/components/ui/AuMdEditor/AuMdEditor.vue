@@ -16,12 +16,15 @@
         </div>
       </div>
       <div class="tool-group">
+        <div class="tool-bar-item text" :title="`最近保存于 ${update_time}`" v-if="update_time">
+          保存成功
+        </div>
         <div class="tool-bar-item" @click="changeViewer()">
           <au-icon v-show="editorViewer == 0" name="RiLayoutRight2Fill" size="22"/>
           <au-icon v-show="editorViewer == 1" name="RiLayoutColumnFill" size="22"/>
           <au-icon v-show="editorViewer == 2" name="RiLayoutLeft2Line" size="22"/>
         </div>
-        <div class="tool-bar-item" @click="save">
+        <div class="tool-bar-item" @click="saveToServer">
           <au-icon name="RiSaveLine" size="22"/>
         </div>
         <div class="tool-bar-item shake" @click="changeStyle()">
@@ -37,7 +40,7 @@
             <div v-for="(line,index) in textLines" :key="index" class="text-line"
             ><div class="line-num">{{index+1}}</div>{{ line }}</div>
           </div>
-          <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" :style="{paddingBottom:`${paddingBottom}px`}"
+          <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" :style="{paddingBottom:`${paddingBottom}px`,paddingLeft:show_line_num?'80px':'10px'}"
             @keydown="handleKeyDown"
             @pointerdown="editorAreaPointerDown"
             @input="handleInput"
@@ -58,7 +61,14 @@
         </div>
 
         <div class="editor-footer-bar">
-          {{ rangePosition }}
+          <span>{{ rangePosition }}</span>
+          <au-icon name="RiMoreLine" size="16" @click="show_more = !show_more"/>
+          <div class="more-menu" v-show='show_more'>
+            <div :class="['more-menu-item',{'active':show_line_num}]" 
+                @click="show_line_num = !show_line_num">
+                <div class="checkbox"><au-icon v-show="show_line_num" name="RiCheckLine" size="16"/></div>show lineNum
+            </div>
+          </div>
         </div>
       </div>
 
@@ -75,24 +85,29 @@ import {uploadToOSSByKey} from '@/api/ossApi.js'
 import oss from '@/api/endpoints/oss'
 import documentApi from '@/api/endpoints/document'
 
-import { useRouter,useRoute } from 'vue-router';
-import {ref, onMounted, getCurrentInstance, nextTick, onUnmounted, computed} from 'vue';
+import { useRouter } from 'vue-router';
+import {ref, onMounted, getCurrentInstance, nextTick, onUnmounted, computed, defineProps} from 'vue';
 const { proxy } = getCurrentInstance()
 import { debounce } from 'lodash-es';
+import dayjs from 'dayjs';
 
-const debug = true //打开监控数据
+const update_time = ref(null)
 
-const show_line_num = true
+const debug = false //打开监控数据
+
+const show_more = ref(false)
+const show_line_num = ref(false)
 
 const scrollHost = ref(null)
 
 const router = useRouter();
-const route = useRoute()
 
 
-// const props = defineProps({
-//   id: String // 自动接收路由参数
-// })
+const props = defineProps({
+  fileName: String,
+  textLines: Array,
+  doc: Object
+})
 
 
 
@@ -109,43 +124,68 @@ function escapeHtml(str) {
     return str
 }
 
-const doc_info = ref({})
+const doc_info = ref(null)
 
 
 
-const save = async () => {
-  const path = process.env.NODE_ENV === 'development' ? 'test/documents' : 'documents'
-  
-  // 1. 将 mdText.value 转换为 File 对象
-  const createFileFromText = (text, fileName) => {
-    const blob = new Blob([text], { type: 'text/markdown' })
-    return new File([blob], fileName, { type: 'text/markdown' })
-  }
+const saveToServer = async () => {
+  console.log(textNeedUpdate.value,titleNeedUpdate.value)
+  if(textNeedUpdate.value){
+    const path = process.env.NODE_ENV === 'development' ? 'test/documents' : 'documents'
+    
+    // 1. 将 mdText.value 转换为 File 对象
+    const createFileFromText = (text, fileName) => {
+      const blob = new Blob([text], { type: 'text/markdown' })
+      return new File([blob], fileName, { type: 'text/markdown' })
+    }
 
-  // 如果没有文档id，则调用接口创建文档数据获得文档id和预设的oss_key
-  if(!doc_info.value?.id){
-    // 这里默认一个user_id是4
-    const rst = await documentApi.reserve_doc(4, path)
-    doc_info.value = rst.data.data
+    // 如果没有文档id，则调用接口创建文档数据获得文档id和预设的oss_key
     console.log(doc_info.value)
-  }
+    if(!doc_info.value?.id){
+      // 这里默认一个user_id是4
+      const rst = await documentApi.reserve_doc(4,fileName.value, path)
+      doc_info.value = rst.data.data
+      console.log(doc_info.value)
+    }
 
-  // 2. 创建文件对象 - 使用文档id作为文件名或自定义文件名
-  const file = createFileFromText(mdText.value, 'temp.md')
+    // 2. 创建文件对象 - 使用文档id作为文件名或自定义文件名
+    const file = createFileFromText(mdText.value, 'temp.md')
 
-  // 通过oss_key上传md文件
-  if(doc_info.value?.oss_key){
-    const oss_token = await oss.getStsToken()
-    const rst = await uploadToOSSByKey(file, doc_info.value.oss_key, oss_token.data)
+    // 通过oss_key上传md文件
 
-    // .md文件上传成功后调用后台更新接口，更新更新时间
-    if(rst?.url) {
-      const rsp = await documentApi.update_doc(doc_info.value.id)
-      return rsp
-    } else {
-      return '文档上传oss失败'
+    if(doc_info.value?.oss_key){
+      const oss_token = await oss.getStsToken()
+      const rst = await uploadToOSSByKey(file, doc_info.value.oss_key, oss_token.data)
+
+      // .md文件上传成功后调用后台更新接口，更新更新时间
+      if(rst?.url) {
+        const title = titleNeedUpdate.value ? fileName.value : null
+        const rsp = await documentApi.update_doc(doc_info.value.id,null,null,title)
+        console.log(rsp)
+        if(rsp?.data?.data?.id == doc_info.value.id){
+          pre_title = fileName.value
+          pre_text = mdText.value
+          update_time.value = dayjs(rsp?.data?.data?.updated_at).format('YYYY/M/D HH:mm:ss');
+        }else{
+          update_time.value = -1
+        }
+        return rsp
+      } else {
+        update_time.value = -1
+        return '文档上传oss失败'
+      }
+    }
+  }else if(titleNeedUpdate.value){
+    const rsp = await documentApi.update_doc(doc_info.value.id,null,null,fileName.value)
+    if(rsp?.data?.data?.id == doc_info.value.id){
+      pre_title = fileName.value
+      update_time.value = dayjs(rsp?.data?.data?.updated_at).format('YYYY/M/D HH:mm:ss');
+    }else{
+      update_time.value = -1
     }
   }
+
+    
 }
 
 
@@ -165,8 +205,11 @@ const rangePosition = computed(()=>{
 // textLines防抖处理
 const syncMarkdown = debounce(() => {
   saveSnapshot()
-  mdText.value = textLines.value.join('\n');
+  // mdText.value = textLines.value.join('\n');
 }, 100);
+
+// 防抖保存（停止输入3秒后触发）
+const debouncedSave = debounce(saveToServer, 3000);
 
 //用于监听编辑器高度变化
 const editorArea = ref(null)
@@ -175,14 +218,24 @@ const paddingBottom = ref(10)
 
 let observer
 
-let doc_id = null
+let pre_text = ''
+let pre_title = ''
+
+const textNeedUpdate = computed(()=>(pre_text != mdText.value))
+const titleNeedUpdate = computed(()=>{
+  console.log(pre_title,fileName.value)
+  return pre_title != fileName.value})
+
 
 onMounted(() => {
 
-  doc_id = route.params.id
 
-  //调整filename输入框宽度
-  updateWidth()
+  doc_info.value = props.doc
+  textLines.value = props.textLines
+  pre_text = mdText.value
+
+  fileName.value = props.fileName
+  pre_title = fileName.value
 
   //监听editor高度变化，动态修改padding-bottom
   observer = new ResizeObserver((entries) => {
@@ -191,48 +244,33 @@ onMounted(() => {
 
   observer.observe(editorArea.value);
 
-  if(doc_id){
-    documentApi.get_doc(doc_id).then(rst => {
-      doc_info.value = rst.data.data
-      console.log(doc_info.value.oss_key)
-      fetchOssMd(doc_info.value.oss_key)
-    
-    })
-  }
-
-  textDiv.value.focus()
-
   nextTick(()=>{
+    //调整filename输入框宽度
+    
+    updateWidth()
     updateRange(0,textLines.value[textLines.value.length-1]?.length)
     saveSnapshot()
+    textDiv.value.focus()
+    saveCursorPosition()
   })
 
   
 })
-const fetchOssMd = async (oss_key) => {
-    try{
-        const response = await fetch(`https://oss.superrabbithero.xyz/${oss_key}`)
-        if (!response.ok) throw new Error('文件加载失败');
-        const text = await response.text()
-        mdText.value = text || '文件加载失败'
-        textLines.value = text.split(/\r?\n/);
-    } catch (err) {
-        console.error('加载失败:', err);
-        return '文件加载失败'
-    }
-}
+
 
 
 onUnmounted(() => {
   syncMarkdown.cancel()
+  debouncedSave.cancel()
 })
 
 //编辑器相关变量
-// const textLines = ref(['abcdefgwerwerwer','hijklmn'])
 
 const textDiv = ref(null)
 
-const textLines = ref(['# 标题'])
+const textLines = ref([''])
+
+const mdText = computed(()=>(textLines.value.join('\n')))
 
 // 更安全的输入法输入判断
 const isIMEInput = ref(false) // 标记是否处于输入法组合输入状态
@@ -251,6 +289,7 @@ const handleInput = (event) => {
     nextTick(()=>{
       updateRange(curRange.value.endIndex,curRange.value.endOffset)
       syncMarkdown()
+      debouncedSave()
     })
   }
 }
@@ -263,6 +302,7 @@ const handleCompositionEnd = () => {
   nextTick(()=>{
     updateRange(curRange.value.endIndex,curRange.value.endOffset)
     syncMarkdown()
+    debouncedSave()
   })
 }
 
@@ -593,7 +633,7 @@ const handleKeyDown = (event) => {
       lineDom.scrollIntoView({ behavior: "instant", block: "nearest" });
       updateRange(rangeIndex,rangeOffset)
       syncMarkdown()
-      // 保证焦点所在行可见
+      debouncedSave()
       
     })
 
@@ -683,6 +723,7 @@ let imgeList = []
 const insertLinesAtCursor = (text, selectRange) => {
   // saveCursorPosition()
   // let ifUpdateRange = true
+  console.log(text)
   let _text = text
   let s = curRange.value.startIndex
   let e = 0
@@ -725,7 +766,9 @@ const insertLinesAtCursor = (text, selectRange) => {
       textLines.value.splice(curRange.value.startIndex+1,0,...lines.slice(1,-1))
     updateSelected = true
     e = curRange.value.startIndex + lines.length - 1
-    e_off = lines[lines.length - 1].length - selectRange[0]
+    e_off = selectRange
+          ? lines[lines.length - 1].length - selectRange[0]
+          : lines[lines.length - 1].length
   }
 
   nextTick(()=>{
@@ -734,6 +777,7 @@ const insertLinesAtCursor = (text, selectRange) => {
     else
       updateRange(e,e_off)
     syncMarkdown()
+    debouncedSave()
   })
 }
 
@@ -764,6 +808,7 @@ const insertLinesAtBefore = (text) => {
   nextTick(()=>{
     updateRange(curRange.value.startIndex,0)
     syncMarkdown()
+    debouncedSave()
   })
 }
 
@@ -793,6 +838,7 @@ const insertLinesAtStartAndEnd = (text) => {
         const eOff = textLines.value[end-1].length
         updateRange(start-1,0,end-1,eOff)
         syncMarkdown()
+        debouncedSave()
       })
     }else{
       textLines.value.splice(end+1,0,text)
@@ -801,6 +847,7 @@ const insertLinesAtStartAndEnd = (text) => {
         const eOff = textLines.value[end+1].length
         updateRange(start+1,0,end+1,eOff)
         syncMarkdown()
+        debouncedSave()
       })
     }
       
@@ -816,6 +863,7 @@ const insertLinesAtStartAndEnd = (text) => {
       nextTick(()=>{
         updateRange(start,startOffset+1,end,endOffset+1)
         syncMarkdown()
+        debouncedSave()
       })
     }else{
       const newLine = line.slice(0,startOffset-1) 
@@ -824,7 +872,8 @@ const insertLinesAtStartAndEnd = (text) => {
       textLines.value[start] = newLine  
       nextTick(()=>{
         updateRange(start,startOffset-1,end,endOffset-1)
-        syncMarkdown()   
+        syncMarkdown()
+        debouncedSave()   
       })   
     }   
             
@@ -853,7 +902,7 @@ const editorAreaPointerup = () => {
   document.removeEventListener('pointerup', editorAreaPointerup)
 }
 
-const fileName = ref('新建文档')
+const fileName = ref(props.fileName)
 
 
 
@@ -1034,7 +1083,6 @@ const goBack = () => {
 }
 
 const headings = ref([])
-const mdText = ref('')
 
 const handleHeadingsUpdate = (list) => {
   headings.value = list
@@ -1079,7 +1127,7 @@ function undo() {
   const lastValue = undoStack.value[undoStack.value.length - 1]
   redoStack.value.push(snapshot);
   textLines.value = JSON.parse(lastValue.v);
-  mdText.value = textLines.value.join('\n');
+  // mdText.value = textLines.value.join('\n');
   nextTick(()=>{
     updateRange(lastValue.r[0],lastValue.r[1])
   })
@@ -1092,7 +1140,7 @@ function redo() {
   const snapshot = redoStack.value.pop();
   undoStack.value.push(snapshot);
   textLines.value = JSON.parse(snapshot.v);
-  mdText.value = textLines.value.join('\n');
+  // mdText.value = textLines.value.join('\n');
   nextTick(()=>{
     updateRange(snapshot.r[0],snapshot.r[1])
   })
@@ -1148,11 +1196,47 @@ function redo() {
   height: 1.5rem;
   line-height: 1.5rem;
   font-size: 0.7rem;
-  font-weight: 100;
+/*  font-weight: 200;*/
   font-family: auto;
   background-color: #0002;
   padding: 0 10px;
-/*  opacity: 0.5;*/
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.more-menu {
+  user-select: none;
+  position: absolute;
+  right: 5px;
+  bottom: 1.7rem;
+  background-color: var(--box-bgc);
+  box-shadow: var(--box-shadow);
+  padding: 4px 2px;
+  border-radius: 4px;
+}
+
+.more-menu-item {
+  cursor: pointer;
+  padding: 0 15px 0 5px;
+  border-radius: 4px;
+  display: flex;
+}
+
+.more-menu-item .checkbox {
+  height: 21px;
+  display: flex;
+  width: 20px;
+  align-items: end;
+}
+
+/*.more-menu-item.active {
+  color:var(--main-color);
+}
+*/
+.more-menu-item:hover {
+  background-color: #8882;
 }
 
 .editor textarea{
@@ -1198,6 +1282,17 @@ function redo() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.tool-bar-item.text {
+  width: fit-content;
+  font-size: 14px;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.tool-bar-item.text:hover {
+  background: unset;
 }
 
 .tool-bar-item.unable {

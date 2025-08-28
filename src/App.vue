@@ -39,7 +39,7 @@
           <!-- <svg-icon name="home01"></svg-icon> -->
         </div>
         <div class="head-item"  style="margin-left: auto;">
-          <div class="pagetitle">{{$route.meta.title?$route.meta.title:decodeURIComponent($route.path).slice(6)}}</div>
+          <div class="pagetitle">{{$route.meta.title?$route.meta.title:pageTitle}}</div>
         </div>
         <div class="head-item" @click="changeStyle" style="margin-left: auto;">
           <icon-wrapper name="RiContrast2Line" />
@@ -75,6 +75,8 @@ import { ref, onMounted, onUnmounted, getCurrentInstance, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import GlobalToast from '@/components/GlobalToast.vue'
 
+const pageTitle = ref('')
+
 const { proxy } = getCurrentInstance()
 const router = useRouter()
 
@@ -97,13 +99,23 @@ const showToast = (msg, option = {}) => {
 const showMessage = (msg, option = {}) => {
   messageRef.value?.show(msg,option)
 }
+
+const changePageTitle = (title) => {
+  pageTitle.value = title
+}
+
 // 将方法提供给所有子组件
 provide('toast', showToast)
 
 provide('message', showMessage)
 
+provide('changePageTitle', changePageTitle)
+
+
+
 // 生命周期
 onMounted(() => {
+
   document.addEventListener("touchstart", function() {}, false)
   
   if(localStorage.getItem('isDark')) {

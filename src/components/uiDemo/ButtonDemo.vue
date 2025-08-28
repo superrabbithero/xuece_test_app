@@ -23,7 +23,16 @@
 				配置
 			</div>
 			<div class="component-demo_config_content">
-				<label><span>内容：</span><input type="text" v-model="config.value"/></label>
+				<label>
+					<au-popup 
+					message="内容" 
+					:showArrow="false"
+					placement="top-left"
+					>
+						<span>内容：</span>
+					</au-popup>
+					
+					<input type="text" v-model="config.value"/></label>
 				<label><span>图标：</span><input type="text" v-model="config.iconName" placeholder="空则不展示图标"/></label>
 				<label><span>块：</span><au-switch size="small" v-model="config.block"/></label>
 				<label><span>禁止：</span><au-switch size="small" v-model="config.disabled"/></label>

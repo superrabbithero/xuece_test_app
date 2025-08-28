@@ -39,3 +39,106 @@ code.hljs{padding:3px 5px}
 .hljs-emphasis{font-style:italic}
 .hljs-strong{font-weight:700}
 .hljs-link{text-decoration:underline}
+
+
+/* 图片调整样式 */
+.resizable-image {
+    position: relative;
+    display: inline-block;
+/*    width: 50%;*/
+    max-width: 100%;
+}
+
+.resizable-image img {
+    display: block;
+    min-width: 80px;
+    width: 600px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s;
+}
+
+
+.resize-handle {
+    position: absolute;
+    top:50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 42px;
+    background: #555;
+    border-radius: 3px;
+    cursor: w-resize;
+    border: 1px solid #fff;
+    z-index: 10;
+    opacity: 0;
+    transition: 0.3s opacity ease-in-out;
+}
+
+.resize-handle.right{
+    right: 5px;  
+}
+
+.resize-handle.left{
+    left: 5px;  
+}
+
+.resizable-image:hover .resize-handle{
+    opacity: 1;
+}
+
+
+.image-size-label {
+    position: absolute;
+    top: -25px;
+    left: 0;
+    background: rgba(15, 20, 35, 0.9);
+    color: #6bc7ff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.resizable-image:hover .image-size-label {
+    opacity: 1;
+}
+
+.instructions {
+    margin-top: 30px;
+    background: rgba(25, 30, 45, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.instructions h3 {
+    color: #ffa86b;
+    margin-bottom: 15px;
+}
+
+.instructions ul {
+    list-style-position: inside;
+    padding-left: 10px;
+}
+
+.instructions li {
+    margin-bottom: 8px;
+    color: #cccccc;
+}
+
+.instructions code {
+    background: rgba(15, 20, 35, 0.7);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #ffda6b;
+}
+
+@media (max-width: 900px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+}

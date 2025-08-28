@@ -15,8 +15,8 @@
           </div>
           <div class="rows center">
             <div class="cols s12 space-around">
-              <au-button class="small" value="取消"  @click="closeModal"/>
-              <au-button class="small fill" value="确认" @click="onConfirm"/>
+              <au-button size="small" value="取消"  @click="closeModal"/>
+              <au-button variant="filled" size="small" value="确认" @click="onConfirm"/>
             </div>
           </div>
         </div>
