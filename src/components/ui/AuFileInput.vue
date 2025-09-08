@@ -1,6 +1,6 @@
 <template>
   <div class="upload-box">
-    <div class="upload-area" @dragover.prevent @drop="handleDrop" @dragenter="handleDragEnter">
+    <div :class="['upload-area',type]" @dragover.prevent @drop="handleDrop" @dragenter="handleDragEnter">
       <div @dragleave="handleDragLeave"  v-if="isFileOver" class="area1"></div>
       <p v-if="!isFileOver">
           拖拉文件到此区域上传或<a class="text_btn" @click="chooseFile">选择文件</a>
@@ -27,6 +27,10 @@ export default {
     modelValue: {
       type: File,
       default: null
+    },
+    type: {
+      type: String,
+      default: ''
     }
   },
 
@@ -142,11 +146,17 @@ export default {
     height: 170px;
     position: relative;
     border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  .upload-area p{
-    margin-top: 68px;
+  .upload-area.image{
+    width: 100px;
+    height: 100px;
   }
+
+  
 
   .area1 {
     position: absolute;

@@ -39,7 +39,7 @@
                                     <div class="more-menu-item" @click="deleteDocConfirmModal = true,curDoc=doc">
                                         <au-icon name="RiDeleteBinLine" size="16"/>删 除
                                     </div>
-                                    <div class="more-menu-item" v-if="doc.status==0">
+                                    <div class="more-menu-item" v-if="doc.status==0" @click="publishModal = true, curDoc=doc">
                                         <au-icon name="RiTelegram2Line" size="16"/>发 布
                                     </div>
                                     <div class="more-menu-item" v-else><au-icon name="RiReplyLine" size="16"/>下 架
@@ -56,6 +56,14 @@
     <my-modal v-model="deleteDocConfirmModal" confirmTitle="删除内容后不可恢复，确定删除吗？" :onFunction="deleteDoc" :width="320"></my-modal>
     <!-- <div>我的文档+筛选</div>
     <div>分类目录_树形</div> -->
+
+    <my-modal v-model="publishModal">
+        <!-- 分类（单选）、标签（多选或自定义）、封面、摘要100字 -->
+        <au-form v-model="publishForm"></au-form>
+        <div class="form-actions">
+            <au-button iconName="RiTelegram2Line" value="发 布" variant="filled" size="small"/>
+        </div>
+    </my-modal>
     
 </template>
 
@@ -65,6 +73,7 @@ import docApi from '@/api/endpoints/document'
 import {ref, onMounted} from 'vue'
 import dayjs from 'dayjs';
 
+
 const formatted = (date_time) => (dayjs(date_time).format('YYYY-MM-DD HH:mm'));
 
 const router = useRouter();
@@ -72,6 +81,25 @@ const router = useRouter();
 const activeMenu = ref('documents')
 
 const deleteDocConfirmModal = ref(false)
+
+const publishModal = ref(false)
+
+const publishForm = ref([
+    {
+        'name':'封面',
+        'key':'cover',
+        'type':'image',
+        'value':''
+    },
+    {
+        'name':'文章摘要',
+        'key': 'summary',
+        'required':true,
+        'type':'text',
+        'max':100,
+        'value':''
+    }
+])
 
 const curDoc = ref(null)
 
@@ -85,6 +113,7 @@ const deleteDoc = () => {
 
 onMounted(() => {
     getMyDocuments()
+    console.log(useRouter)
 })
 
 const turn2Page = (menu) => {
@@ -226,6 +255,14 @@ const getMyDocuments = async () => {
 
 .more-menu-item:hover {
     background-color: #8882;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: var(--box-border);
 }
 
 </style>

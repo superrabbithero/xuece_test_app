@@ -158,7 +158,7 @@ const closeModal = () => {
 
 @media (max-width: 400px) {
   .modal {
-    width:100%;
+    width:100%!important;
     border-radius: 0;
     bottom: 0;
     top: unset;

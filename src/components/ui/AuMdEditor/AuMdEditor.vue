@@ -5,12 +5,12 @@
         <div class="tool-bar-item" @click="goBack()">
           <au-icon name="RiArrowLeftLine" size="22"/>
         </div>
-        <div>
+        <div class="input-box">
           <input class="file-name-input" v-model="fileName" :style="{ width: `${inputWidth}px`}" @input="updateWidth" @keyup="handleKeyUp" />
           <span ref="calc_text_length" class="hide-span">{{fileName}}</span>
         </div>
       </div>
-      <div class="tool-group">
+      <div class="tool-group sm-hidden">
         <div v-for="tool in toolBar" :key="tool" :class="['tool-bar-item',{'unable':tool?.unable}]" @click="tool?.click?.() || doEdit(tool.iconName)">
           <au-icon :name="tool.iconName" size="22"/>
         </div>
@@ -36,11 +36,15 @@
     <div class="editor-area" ref="editorArea">
       <div class="editor-container" v-show="editorViewer != 2 " >
         <div class="editor" ref="scrollHost">
-          <div class="edited-dom hidden" v-if="show_line_num" >
+          <div class="edited-dom hidden" :style="{paddingBottom:`${paddingBottom}px`}">
             <div v-for="(line,index) in textLines" :key="index" class="text-line"
-            ><div class="line-num">{{index+1}}</div>{{ line }}</div>
+            >
+              <div class="line-num" v-if="show_line_num">{{index+1}}</div>
+              <!-- <div class="line-tools" v-else><au-icon  name="RiDraggable" size="20"/></div> -->
+              <div v-html="line === '' ? '<br>' : escapeHtml(line)"></div>
+            </div>
           </div>
-          <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" :style="{paddingBottom:`${paddingBottom}px`,paddingLeft:show_line_num?'80px':'10px'}"
+          <div contenteditable="true" spellcheck="false" class="edited-dom" ref="textDiv" :style="{paddingBottom:`${paddingBottom}px`}"
             @keydown="handleKeyDown"
             @pointerdown="editorAreaPointerDown"
             @input="handleInput"
@@ -49,7 +53,27 @@
             @compositionstart="handleCompositionStart"
             @dragstart="handleDragStart"
             @drop="handleDrop">
-            <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" :id="`line-${index}`" v-html="line === '' ? '<br>' : escapeHtml(line)">
+
+            <div v-for="(line,index) in textLines" draggable="false" :key="index" class="text-line" >
+              <div :class="['line-tools',{'active': index == curLineNum}]" @click="openLineTools($event,index)"><au-icon  name="RiDraggable" size="18" /></div>
+              <div :class="['line-text',{'active': index == curLineNum}]" :id="`line-${index}`"  v-html="line === '' ? '<br>' : escapeHtml(line)"></div>
+            </div>
+          </div>
+          {{showLineTools}}
+          <div :class="['line-tools-box au-grid',{'show':showLineTools}]" ref="lineTools">
+            <div class="rows">
+              <div class="line-tools-box-item cols"><au-icon name="RiText" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiH1" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiH2" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiH3" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiH4" size="16"/></div>
+            </div>
+            <div class="rows">
+              <div class="line-tools-box-item cols"><au-icon name="RiBold" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiItalic" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiStrikethrough" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiListUnordered" size="16"/></div>
+              <div class="line-tools-box-item cols"><au-icon name="RiListOrdered2" size="16"/></div>
             </div>
           </div>
         </div>
@@ -72,12 +96,13 @@
         </div>
       </div>
 
-      <div class="preview" v-if="editorViewer != 0">
+      <div class="preview" v-show="editorViewer != 0">
         <au-markdown-viewer :content="mdText"
           @update-headings="handleHeadingsUpdate"/>
       </div>
     </div>
   </div>
+  
 </template>
 <script setup>
 import imageApi from '@/api/endpoints/image'
@@ -92,6 +117,79 @@ import { debounce } from 'lodash-es';
 import dayjs from 'dayjs';
 
 const update_time = ref(null)
+
+const lineTools = ref(null)
+
+const curLineNum = ref(null)
+
+const showLineTools = ref(false)
+
+const openLineTools = (e, lineNum) => {
+  const targetElement = e.currentTarget; // 当前点击的 .line-tools 元素
+  const rect = targetElement.getBoundingClientRect(); // 获取该元素的视口坐标信息
+
+  curLineNum.value = lineNum;
+
+  // 获取 lineTools DOM 引用
+  const toolsEl = lineTools.value;
+
+  // 方案1：工具栏显示在点击元素的【正下方，水平居中】
+  const toolsWidth = toolsEl.offsetWidth;  // 工具栏自身的宽度
+  // const toolsHeight = toolsEl.offsetHeight; // 工具栏自身的高度（可选，用于避免超出屏幕）
+
+  // 水平居中于当前点击元素
+  const left = rect.left + (rect.width / 2) - (toolsWidth / 2);
+
+  // 垂直放在元素的下方（rect.bottom 是元素下边缘的 Y 坐标）
+  const top = rect.bottom + 5; // 5px 是间距
+
+  // 限制不能超出屏幕左右边界（可选，增强健壮性）
+  const finalLeft = Math.max(10, Math.min(left, window.innerWidth - toolsWidth - 10));
+
+  toolsEl.style.position = 'fixed'; // 推荐使用 fixed，以视口为基准定位
+  toolsEl.style.left = `${finalLeft}px`;
+  toolsEl.style.top = `${top}px`;
+
+  document.addEventListener('pointerdown', handleGlobalEvent)
+  document.addEventListener('wheel', handleGlobalEvent, { passive: true })
+
+  // 显示工具栏
+  showLineTools.value = true;
+}
+
+// 判断是否应该关闭工具栏的函数
+const shouldCloseLineTools = (event) => {
+  if (!showLineTools.value) return false // 如果本来就是隐藏的，不需要处理
+
+  if (!lineTools.value) return true // 如果工具栏 DOM 还没渲染，保守处理也关闭
+
+  // 如果点击的目标在 lineTools 内部，不关闭
+  if (lineTools.value.contains(event.target)) {
+    return false
+  }
+
+  // 否则，应该关闭
+  return true
+}
+
+const closeLineTools = () => {
+  showLineTools.value = false
+  const toolsEl = lineTools.value;
+  toolsEl.style.position = 'fixed'; 
+  toolsEl.style.left = `-999px`;
+  toolsEl.style.top = `-999px`;
+  document.removeEventListener('pointerdown', handleGlobalEvent)
+  document.removeEventListener('wheel', handleGlobalEvent, { passive: true })
+  curLineNum.value = null
+}
+
+// 全局事件处理
+const handleGlobalEvent = (event) => {
+  if (shouldCloseLineTools(event)) {
+    closeLineTools()
+  }
+}
+
 
 const debug = false //打开监控数据
 
@@ -1310,6 +1408,13 @@ function redo() {
   align-items: center;
 }
 
+@media (max-width: 768px) {
+  .input-box {
+    max-width: 20rem;
+  }
+}
+
+
 .file-name-input {
   max-width: 100%;
   min-width: 2ch;
@@ -1340,31 +1445,36 @@ function redo() {
 }
 
 .text-line {
-  width: 100%;
+/*  width: 100%;*/
   line-height: 1.5rem;
   min-height: 1.5rem;
   background-color: field;
   white-space: pre-wrap;
   word-break: break-all; /*  纯数字的换行问题*/
   position: relative;
-  
+  padding: 0 30px;
 }
 
 
 
 .edited-dom {
+/*  position: absolute;*/
+/*  left: 10px;*/
   font-family: auto;
   outline: none ;
-  width: calc(100% - 10px);
-  min-height: calc(100% - 10px);
-  padding-left: 80px;
+  padding: 0;
+/*  width: calc(100% - 20px);*/
+  min-height: calc(100% - 60px);
   box-sizing: border-box;
 }
 
 .edited-dom.hidden{
   position: absolute;
   visibility: hidden;
+/*  z-index: 999;*/
+/*  opacity: 0.5;*/
   min-width: 0;
+/*  color: red;*/
 }
 
 .line-num {
@@ -1382,7 +1492,43 @@ function redo() {
 
 }
 
+.line-tools {
+  cursor: grab;
+  user-select: none;
+  position: absolute;
+  visibility: visible;
+  width: 20px;
+  border-radius: 4px;
+  height: 24px;
+  left: 5px;
+  bottom:0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color:var(--fontNormal)!important;
+  opacity: 0;
+  transition: 0.3s opacity ease;
+}
 
+.text-line:hover .line-tools{
+  opacity: 1;
+}
+
+.line-tools:hover {
+  background-color: #8882;
+}
+
+.line-tools.active {
+  opacity: 1;
+}
+
+.line-text.active {
+  background-color: #a0ceff91;
+  opacity: 1;
+}
+
+/*#a0ceff91*/
 
 .text-line-position {
   position: fixed;
@@ -1391,8 +1537,8 @@ function redo() {
 }
 
 .editor-area::selection {
-  /*background-color: var(--main-color);
-  color : #fff*/
+  background-color: #a0ceff91;
+  color : initial;
 }
 
 .tool-bar-item.shake{
@@ -1406,6 +1552,39 @@ function redo() {
 
 .pointer-shake:hover {
   transform: rotate(-15deg);
+}
+
+.line-tools-box {
+  position: fixed;
+  z-index: 999;
+  left: -999px;
+  top: -999px;
+  opacity: 0;
+  background-color: var(--box-bgc);
+  border-radius: 8px;
+  border:var(--box-border);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.line-tools-box.show {
+  opacity:1;
+}
+
+.line-tools-box .rows{
+  margin: 0;
+}
+
+.line-tools-box-item {
+  height: 24px;
+  width: 24px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.line-tools-box-item:hover {
+  background-color: #9993;
 }
 
 </style>
