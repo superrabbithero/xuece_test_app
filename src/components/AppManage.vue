@@ -72,7 +72,7 @@
     <div class="au-grid">
       <div class="rows" style="gap: 10px">
         <div class="cols s12">
-          <au-file-input accept=".ipa, .apk, .exe" v-model="file"></au-file-input>
+          <au-file-input accept=".ipa, .apk, .exe" dragable v-model="file"></au-file-input>
         </div>
         <div class="cols s12">
           <div v-if="isParsing || packageInfo" class="file-info au-grid">

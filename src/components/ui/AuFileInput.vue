@@ -1,28 +1,93 @@
 <template>
   <div class="upload-box">
-    <div :class="['upload-area',type]" @dragover.prevent @drop="handleDrop" @dragenter="handleDragEnter">
-      <div @dragleave="handleDragLeave"  v-if="isFileOver" class="area1"></div>
-      <p v-if="!isFileOver">
-          拖拉文件到此区域上传或<a class="text_btn" @click="chooseFile">选择文件</a>
-      </p>
-      <p v-else>释放文件上传</p>
-      <input type="file" ref="fileInput" @change="handleFileChange" :accept="accept" style="display: none;">
+    <div
+      :class="['au-grid', 'upload-area', type, { dragable: dragable, 'drag-over': isDragOver }]"
+      @dragover.prevent
+      @drop="handleDrop"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      @click="!dragable && chooseFile()"
+    >
+      <!-- 拖拽区域提示 -->
+      <div v-if="isDragOver && dragable" class="drag-overlay">
+        <p>释放文件上传</p>
+      </div>
+      
+      <!-- 非拖拽状态下的提示 -->
+      <div v-else class="upload-prompt">
+        <template v-if="uploadedUrl">
+          <div class="show-result">
+            <img :src="uploadedUrl"/>
+          </div>
+        </template>
+        <template v-else-if="dragable">
+          <p>拖拉文件到此区域上传或<a class="text-btn" @click.stop="chooseFile">选择文件</a></p>
+        </template>
+        <template v-else-if="type === 'image'">
+          <div class="image-prompt rows center">
+            <au-icon size="24" name="RiAddLine"/>
+            <span>点击上传图片</span>
+          </div>
+        </template>
+        
+      </div>
+
+      <!-- 文件选择输入框 -->
+      <input
+        ref="fileInput"
+        type="file"
+        :accept="accept"
+        @change="handleFileChange"
+        class="file-input"
+      >
+      <div v-if="uploading" class="upload-progress">
+        上传中: {{ progress }}%
+      </div>
     </div>
-    <div v-if="file && false" class="file-name">
-      <label v-if="file.name" :title="file.name">{{file.name}}</label>
-      <icon-wrapper class="table-do"  name="RiCloseCircleLine" size="20" @click="clearFile"/>
+
+    <!-- 文件名称显示 -->
+    <div v-if="file" class="file-info">
+      <span class="file-name" :title="file.name">{{ file.name }}</span>
+      <au-icon
+        class="remove-btn"
+        name="RiCloseCircleLine"
+        size="20"
+        @click="clearFile"
+      />
     </div>
   </div>
 </template>
 
 <script>
-import { ref , inject} from 'vue';
+import { ref, computed, inject } from 'vue';
+import imageApi from '@/api/endpoints/image'
+import {uploadToOSSByKey} from '@/api/ossApi.js'
+import oss from '@/api/endpoints/oss'
+
+// MIME类型映射表
+const MIME_TYPES = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  mp4: 'video/mp4',
+  mp3: 'audio/mp3',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  zip: 'application/zip',
+  rar: 'application/vnd.rar'
+};
 
 export default {
+  name: 'FileUpload',
+  
   props: {
     accept: {
       type: String,
-      required: false
+      default: ''
     },
     modelValue: {
       type: File,
@@ -31,160 +96,324 @@ export default {
     type: {
       type: String,
       default: ''
+    },
+    dragable: {
+      type: Boolean,
+      default: false
+    },
+    // 新增一个上传方法prop
+    uploadHandler: {
+      type: Function,
+      default: null
     }
   },
 
-  emits:['update:modelValue'],
+  emits: ['update:modelValue', 'error'],
 
   setup(props, { emit }) {
-    const isFileOver = ref(false)
-    const file = ref(null)
-    const fileInput = ref(null)
+    const isDragOver = ref(false);
+    const fileInput = ref(null);
+    const file = computed(() => props.modelValue);
 
-    const toast = inject('toast')
+    const toast = inject('toast');
 
-    const handleDrop = (event) => {
-      isFileOver.value = false
-      event.preventDefault();
-      if(isFileNameValid(event.dataTransfer.files[0].name,props.accept)){
-        file.value = event.dataTransfer.files[0]
-        emit('update:modelValue', file.value)
-      }else{
-        toast(`文件格式不符合要求(${props.accept})`, { type: 'error' })
-      }
+    // 新增上传状态
+    const uploading = ref(false);
+    const progress = ref(0);
+    const uploadedUrl = ref(null)
+
+    // 处理文件上传
+    const handleUpload = async (file) => {
+      if (!file) return;
       
+      try {
+        uploading.value = true;
+        progress.value = 0;
+        
+        let result;
+        
+        if (props.uploadHandler) {
+          // 如果提供了自定义上传方法
+          result = await props.uploadHandler({
+            file,
+            onProgress: (percent) => {
+              progress.value = percent;
+              // emit('progress', percent);
+
+            }
+          });
+        } else {
+          // 默认行为（可选）
+          result = await defaultUpload(file);
+        }
+        uploadedUrl.value = result
+        console.log(result)
+        // emit('upload-success', result);
+      } catch (error) {
+        // emit('upload-error', error);
+        console.error(error)
+      } finally {
+        uploading.value = false;
+      }
+    };
+
+    const defaultUpload = (file) => {
+      console.log(file.name)
+      if(props.type == 'image')
+        return upload_image_to_oss(file)
     }
 
-    const handleDragEnter = () => {
-      isFileOver.value = true
+    const upload_image_to_oss = async (file) => {
+      const path = process.env.NODE_ENV === 'development' ? 'test/images/doc_cover' : 'images/doc_cover'
+      const r = await imageApi.reserve_img(file.name, path)
+      const img_data = r?.data?.data
+      console.log(img_data)
+      if(img_data?.oss_key){
+        const oss_token = await oss.getStsToken()
+        const rst = await uploadToOSSByKey(file,img_data.oss_key,oss_token.data)
+        if(rst?.url)
+          return rst.url
+        else
+          return '图片上传oss失败'
+      }else{
+        console.error('reserve图片失败')
+      }
     }
 
-    const handleDragLeave = () => {
-      isFileOver.value = false
-    }
-
+    // 选择文件
     const chooseFile = () => {
-      fileInput.value.click()
-    }
+      fileInput.value?.click();
+    };
 
+    // 清空文件
     const clearFile = () => {
-      file.value = null
       emit('update:modelValue', null);
-    }
+    };
 
-    /**
-     * 检查文件名是否符合 accept 规则
-     * @param {string} fileName - 文件名（如 "example.pdf"）
-     * @param {string} accept - accept 规则（如 ".pdf,image/*"）
-     * @returns {boolean}
-     */
-    function isFileNameValid(fileName, accept) {
-      if (!accept) return true; // 如果未设置 accept，则默认允许
+    // 处理文件选择
+    const handleFileChange = (event) => {
+      const selectedFile = event.target.files[0];
+      if (selectedFile) {
+        validateAndSetFile(selectedFile);
+      }
+    };
 
-      const acceptRules = accept.split(',').map(rule => rule.trim());
-      const fileExtension = fileName.split('.').pop().toLowerCase();
+    // 处理拖拽放置
+    const handleDrop = (event) => {
+      if (!props.dragable) return;
+      
+      isDragOver.value = false;
+      event.preventDefault();
+      
+      const droppedFile = event.dataTransfer.files[0];
+      if (droppedFile) {
+        validateAndSetFile(droppedFile);
+      }
+    };
 
-      return acceptRules.some(rule => {
-        // 规则是扩展名（如 ".pdf"）
+    // 处理拖拽进入
+    const handleDragEnter = (event) => {
+      if (!props.dragable) return;
+      event.preventDefault();
+      isDragOver.value = true;
+    };
+
+    // 处理拖拽离开
+    const handleDragLeave = (event) => {
+      if (!props.dragable) return;
+      
+      // 确保鼠标真正离开上传区域
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        isDragOver.value = false;
+      }
+    };
+
+    // 验证并设置文件
+    const validateAndSetFile = (file) => {
+      if (isFileValid(file.name, props.accept)) {
+        emit('update:modelValue', file);
+        handleUpload(file);
+      } else {
+        const errorMsg = `文件格式不符合要求 (${props.accept})`;
+        toast?.(errorMsg, { type: 'error' });
+        // emit('error', new Error(errorMsg));
+      }
+    };
+
+    // 验证文件是否符合accept规则
+    const isFileValid = (fileName, acceptRules) => {
+      if (!acceptRules) return true;
+
+      const rules = acceptRules.split(',').map(rule => rule.trim());
+      const extension = fileName.toLowerCase().split('.').pop();
+
+      return rules.some(rule => {
+        // 处理扩展名规则 (.pdf, .jpg)
         if (rule.startsWith('.')) {
-          return fileExtension === rule.substring(1).toLowerCase();
+          return extension === rule.substring(1).toLowerCase();
         }
-        // 规则是 MIME 类型（如 "image/*"）
-        else if (rule.includes('/*')) {
-          const mimeCategory = rule.split('/')[0].toLowerCase();
-          const fileMime = getFileMimeType(fileName); // 需要实现 MIME 类型推断
-          return fileMime.startsWith(mimeCategory);
+        
+        // 处理MIME类型规则 (image/*, application/pdf)
+        const fileMime = getMimeTypeFromExtension(extension);
+        if (rule.includes('/*')) {
+          const category = rule.split('/')[0].toLowerCase();
+          return fileMime.startsWith(category);
         }
-        // 规则是具体 MIME 类型（如 "application/pdf"）
-        else {
-          const expectedMime = rule.toLowerCase();
-          const fileMime = getFileMimeType(fileName);
-          return fileMime === expectedMime;
-        }
+        
+        return fileMime === rule.toLowerCase();
       });
-    }
+    };
 
-    // 示例：从文件名推断 MIME 类型（简化版）
-    function getFileMimeType(fileName) {
-      const extension = fileName.split('.').pop().toLowerCase();
-      const mimeTypes = {
-        pdf: 'application/pdf',
-        jpg: 'image/jpeg',
-        png: 'image/png',
-        mp3: 'audio/mp3',
-        // 可扩展更多类型...
-      };
-      return mimeTypes[extension] || 'application/octet-stream';
-    }
-
+    // 根据扩展名获取MIME类型
+    const getMimeTypeFromExtension = (extension) => {
+      return MIME_TYPES[extension] || 'application/octet-stream';
+    };
 
     return {
-      isFileOver,
+      isDragOver,
       fileInput,
+      file,
+      chooseFile,
+      clearFile,
       handleDrop,
       handleDragEnter,
       handleDragLeave,
-      chooseFile,
-      file,
-      clearFile
+      handleFileChange,
+      uploading,
+      progress,
+      uploadedUrl
     };
   }
 };
 </script>
 
 <style scoped>
-  .upload-box {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-  }
+.upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
 
-  .upload-area {
-    border: 1px dashed var(--dashed-color);
-    padding: 20px;
-    text-align: center;
-    height: 170px;
-    position: relative;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+.upload-area {
+  border: 2px dashed #8888;
+  border-radius: 8px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
 
-  .upload-area.image{
-    width: 100px;
-    height: 100px;
-  }
+/*.upload-area:hover {
+  border-color: var(--main-color);
+  background-color: #8882;
+}*/
 
-  
+.upload-area.drag-over {
+  border-color: var(--main-color);
+  background-color: #8882;
+}
 
-  .area1 {
-    position: absolute;
-    top:0;
-    right:0;
-    bottom:0;
-    left:0;
-    background-color: rgba(0, 0, 0, 0.1);
-  }
+.upload-area.image {
+  width: 100px;
+  height: 100px;
+  background: #8882;
+  min-height: unset;
+}
 
-  .text_btn{
-    text-decoration: underline;  /* 添加下划线 */
-    font-weight: bold;   
-    cursor: pointer;
-  }
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #8882;
+}
 
-  .file-name{
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+.upload-prompt {
+  height: 100%;
+  width: 100%;
+  text-align: center;
+  color: var(--text-secondary, #6c757d);
+}
 
-  .file-name > label {
-    width: 80%;
-    white-space: nowrap;      /* 禁止换行 */
-    overflow: hidden;         /* 隐藏超出部分 */
-    text-overflow: ellipsis;  /* 超出时显示省略号 */
-    font-weight: normal;
-  }
+.image-prompt {
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+}
+
+.image-prompt span{
+  font-size: 0.9rem;
+}
+
+.upload-area.image:hover {
+  border-color: var(--main-color);
+}
+
+.text-btn {
+  color: var(--main-color);
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.text-btn:hover {
+  color: var(--main-color-dark);
+}
+
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--bg-secondary, #f8f9fa);
+  border-radius: 4px;
+}
+
+.file-name {
+  flex: 1;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-btn {
+  color: var(--danger, #dc3545);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remove-btn:hover {
+  color: var(--danger-dark, #bd2130);
+}
+
+.show-result{
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.show-result{
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.show-result img{
+  height: 100%;
+}
 </style>

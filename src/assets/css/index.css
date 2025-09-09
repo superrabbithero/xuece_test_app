@@ -1063,6 +1063,7 @@ textarea:active, textarea:focus{
     display: flex;
     flex-direction: column;
     padding: 5px;
+    row-gap: 1rem;
 }
 
 .au-grid.demo {
@@ -1074,13 +1075,13 @@ textarea:active, textarea:focus{
 .au-grid .rows{
     display: flex;
     align-items: center;
-    margin-bottom: 1rem;
+/*    margin-bottom: 1rem;*/
     flex-wrap: wrap;
 }
 
-.au-grid .rows:last-child{
+/*.au-grid .rows:last-child{
     margin-bottom: 0;
-}
+}*/
 
 .au-grid .rows .cols{
     box-sizing: border-box;
