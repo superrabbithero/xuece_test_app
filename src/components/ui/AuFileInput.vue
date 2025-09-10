@@ -16,9 +16,7 @@
       <!-- 非拖拽状态下的提示 -->
       <div v-else class="upload-prompt">
         <template v-if="uploadedUrl">
-          <div class="show-result">
-            <img :src="uploadedUrl"/>
-          </div>
+          <au-image :src="uploadedUrl"><au-icon name="RiDeleteBin6Line" size="16" @click="clearFile"/></au-image>
         </template>
         <template v-else-if="dragable">
           <p>拖拉文件到此区域上传或<a class="text-btn" @click.stop="chooseFile">选择文件</a></p>
@@ -46,8 +44,8 @@
     </div>
 
     <!-- 文件名称显示 -->
-    <div v-if="file" class="file-info">
-      <span class="file-name" :title="file.name">{{ file.name }}</span>
+    <div v-if="file && false" class="file-info">
+      <span class="file-name" :title="file.name || file">{{ file.name || file }}</span>
       <au-icon
         class="remove-btn"
         name="RiCloseCircleLine"
@@ -56,6 +54,9 @@
       />
     </div>
   </div>
+
+  
+
 </template>
 
 <script>
@@ -63,6 +64,8 @@ import { ref, computed, inject } from 'vue';
 import imageApi from '@/api/endpoints/image'
 import {uploadToOSSByKey} from '@/api/ossApi.js'
 import oss from '@/api/endpoints/oss'
+
+
 
 // MIME类型映射表
 const MIME_TYPES = {
@@ -90,7 +93,7 @@ export default {
       default: ''
     },
     modelValue: {
-      type: File,
+      type: [File,String],
       default: null
     },
     type: {
@@ -121,6 +124,15 @@ export default {
     const uploading = ref(false);
     const progress = ref(0);
     const uploadedUrl = ref(null)
+
+    const image_viewer_data = ref(null)
+
+    const imageView = () => {
+      console.log(uploadedUrl.value)
+      if(uploadedUrl.value){
+        image_viewer_data.value = uploadedUrl.value
+      }
+    }
 
     // 处理文件上传
     const handleUpload = async (file) => {
@@ -187,6 +199,7 @@ export default {
 
     // 清空文件
     const clearFile = () => {
+      uploadedUrl.value = null
       emit('update:modelValue', null);
     };
 
@@ -229,10 +242,13 @@ export default {
     };
 
     // 验证并设置文件
-    const validateAndSetFile = (file) => {
+    const validateAndSetFile = async (file) => {
       if (isFileValid(file.name, props.accept)) {
-        emit('update:modelValue', file);
-        handleUpload(file);
+        await handleUpload(file);
+        if(uploadedUrl.value)
+          emit('update:modelValue', uploadedUrl.value);
+        else
+          emit('update:modelValue', file);
       } else {
         const errorMsg = `文件格式不符合要求 (${props.accept})`;
         toast?.(errorMsg, { type: 'error' });
@@ -281,7 +297,9 @@ export default {
       handleFileChange,
       uploading,
       progress,
-      uploadedUrl
+      uploadedUrl,
+      imageView,
+      image_viewer_data
     };
   }
 };
@@ -372,6 +390,7 @@ export default {
   opacity: 0;
   width: 0;
   height: 0;
+  z-index: -1;
 }
 
 .file-info {
@@ -399,21 +418,5 @@ export default {
 
 .remove-btn:hover {
   color: var(--danger-dark, #bd2130);
-}
-
-.show-result{
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.show-result{
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.show-result img{
-  height: 100%;
 }
 </style>

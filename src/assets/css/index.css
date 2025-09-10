@@ -1046,6 +1046,10 @@ textarea:active, textarea:focus{
 
 
 /*layout*/
+.au-grid.space-between {
+    justify-content: space-between;
+}
+
 .au-grid .cols .demo{
     min-height: 1rem;
     line-height: 1rem;

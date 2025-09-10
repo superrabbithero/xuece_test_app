@@ -26,6 +26,17 @@ export default {
         })
     },
 
+    publish_doc(id,cover_img=null,short_content=null) {
+        const data = { id ,status:3};
+        if (cover_img != null) data.cover_img = cover_img;
+        if (short_content != null) data.short_content = short_content
+        return http.put('/documents/publish', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+    },
+
     get_doc(id){
         const params = {id}
         return http.get('/documents/detail',{ params })

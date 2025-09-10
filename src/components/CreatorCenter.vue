@@ -39,7 +39,7 @@
                                     <div class="more-menu-item" @click="deleteDocConfirmModal = true,curDoc=doc">
                                         <au-icon name="RiDeleteBinLine" size="16"/>删 除
                                     </div>
-                                    <div class="more-menu-item" v-if="doc.status==0" @click="publishModal = true, curDoc=doc">
+                                    <div class="more-menu-item" v-if="doc.status==0" @click="openPublishModal(doc)">
                                         <au-icon name="RiTelegram2Line" size="16"/>发 布
                                     </div>
                                     <div class="more-menu-item" v-else><au-icon name="RiReplyLine" size="16"/>下 架
@@ -61,7 +61,7 @@
         <!-- 分类（单选）、标签（多选或自定义）、封面、摘要100字 -->
         <au-form v-model="publishForm"></au-form>
         <div class="form-actions">
-            <au-button iconName="RiTelegram2Line" value="发 布" variant="filled" size="small"/>
+            <au-button iconName="RiTelegram2Line" value="发 布" variant="filled" size="small" @click="publishDoc"/>
         </div>
     </my-modal>
     
@@ -70,7 +70,7 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import docApi from '@/api/endpoints/document'
-import {ref, onMounted} from 'vue'
+import {ref, onMounted, computed} from 'vue'
 import dayjs from 'dayjs';
 
 
@@ -84,12 +84,12 @@ const deleteDocConfirmModal = ref(false)
 
 const publishModal = ref(false)
 
-const publishForm = ref([
+const publishForm = computed(()=>[
     {
         'name':'封面',
         'key':'cover',
         'type':'image',
-        'value':''
+        'value':`${curDoc.value.cover_img}`
     },
     {
         'name':'文章摘要',
@@ -97,9 +97,17 @@ const publishForm = ref([
         'required':true,
         'type':'text',
         'max':100,
-        'value':''
+        'value':`${curDoc.value.short_content}`
     }
 ])
+
+const openPublishModal = (doc) => {
+    
+    curDoc.value=doc
+    // console.log(curDoc.value)
+    console.log("表单",publishForm.value)
+    publishModal.value = true
+}
 
 const curDoc = ref(null)
 
@@ -109,6 +117,11 @@ const deleteDoc = () => {
         console.log(filter.value)
         getMyDocuments()
     })
+}
+
+const publishDoc = () => {
+    // console.log(curDoc.value)
+    console.log("表单",publishForm.value)
 }
 
 onMounted(() => {

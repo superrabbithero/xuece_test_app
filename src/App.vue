@@ -68,6 +68,7 @@
 </div>
 <GlobalToast ref="toastRef"/>
 <au-message ref="messageRef"/>
+<au-image-viewer :imgData="imageData" />
 </template>
 
 <script setup>
@@ -104,12 +105,22 @@ const changePageTitle = (title) => {
   pageTitle.value = title
 }
 
+const imageData = ref(null)
+
+const imageView = (data) => {
+  imageData.value = data
+}
+
 // 将方法提供给所有子组件
 provide('toast', showToast)
 
 provide('message', showMessage)
 
 provide('changePageTitle', changePageTitle)
+
+provide('imageView', imageView)
+
+
 
 
 
