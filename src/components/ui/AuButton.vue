@@ -1,10 +1,11 @@
 <template>
     <div :class="buttonStyle" @click="rippleEffect" ref="button">
-        <icon-wrapper class="button-icon" v-if="iconName"  :name="iconName" :size="size == 'small' ? 20:24" />
+        <au-icon class="button-icon" v-if="iconName"  :name="iconName" :size="size == 'small' ? 20:24" />
         <div v-if="value && value != ''" class="button-value">{{ value }}</div>
         <div v-else class="button-slot">
             <slot></slot>
         </div>
+        <au-icon v-if="isLoading" name="RiLoader5Line" class="ani-circle" :size="size == 'small' ? 20:24" />
     </div>
 </template>
 
@@ -46,6 +47,11 @@ const props = defineProps({
     variant:{
         type:String,
         default:"outline"
+    },
+
+    isLoading:{
+        type:Boolean,
+        default:false
     }
 
 })
@@ -57,7 +63,8 @@ const buttonStyle = computed(()=>{
         'au-button':true,
         'only-text':!props.iconName,
         'block':props.block,
-        'disabled':props.disabled
+        'disabled':props.disabled,
+        'isLoading':props.isLoading
     },
     props.shape,
     props.size,
@@ -227,6 +234,11 @@ const rippleEffect = (e) => {
     pointer-events: none; /* 阻止鼠标事件（部分浏览器支持） */
 }
 
+.au-button.isLoading {
+    cursor: not-allowed; 
+    pointer-events: none; 
+}
+
 .au-button.filled:hover{
     border: 1px solid #ffb60a;
     background-color: #ffb60a;
@@ -266,6 +278,22 @@ const rippleEffect = (e) => {
 
 .button-slot:empty {
     display: none;
+}
+
+.ani-circle {
+    animation: loading 1.5s infinite;
+}
+
+
+
+/* 动画效果 */
+@keyframes loading {
+  0% {
+    transform: rotate(-45deg);
+  }
+  100% {
+    transform: rotate(315deg);
+  }
 }
 
 

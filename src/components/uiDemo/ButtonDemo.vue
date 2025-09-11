@@ -14,7 +14,8 @@
 					:size="config.size"
 					:value="config.value"
 					:iconName="config.iconName"
-					:variant="config.variant"/>
+					:variant="config.variant"
+					:isLoading="config.isLoading"/>
 			</div>
 		</div>
 		<div class="component-demo_config">
@@ -36,6 +37,7 @@
 				<label><span>图标：</span><input type="text" v-model="config.iconName" placeholder="空则不展示图标"/></label>
 				<label><span>块：</span><au-switch size="small" v-model="config.block"/></label>
 				<label><span>禁止：</span><au-switch size="small" v-model="config.disabled"/></label>
+				<label><span>加载：</span><au-switch size="small" v-model="config.isLoading"/></label>
 				<label><span>形状：</span><au-select :dataList="shapeList" v-model="shapeIndex"/></label>
 				<label><span>尺寸：</span><au-select :dataList="sizeList" v-model="sizeIndex"/></label>
 				<label><span>变体：</span><au-select :dataList="variantList" v-model="variantIndex"/></label>
@@ -63,6 +65,7 @@ const config = ref({
 	disabled:false,
 	loading:false,
 	iconName:"",
+	isLoading:false,
 	value:"Button 按钮",
 	shape:computed(()=>{return shapeList[shapeIndex.value]}),
 	size:computed(()=>{return sizeList[sizeIndex.value]}),

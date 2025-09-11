@@ -4,8 +4,8 @@ import userApi from '@/api/endpoints/user'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    token: "",
-    userInfo: {}
+    token: localStorage.getItem("token") || '',
+    userInfo: JSON.parse(localStorage.getItem("userInfo")) || {}
   }),
   
   actions: {
@@ -28,9 +28,13 @@ export const useUserStore = defineStore('user', {
         
         const response = await userApi.login(userData)
 
+        console.log(response.data)
+
         this.token = response?.data?.token
+        this.userInfo = response?.data?.user_info
     
         localStorage.setItem('token', this.token)
+        localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
         console.log(response)
         return response
       } catch (error) {

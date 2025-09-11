@@ -42,7 +42,7 @@
                                     <div class="more-menu-item" v-if="doc.status==0" @click="openPublishModal(doc)">
                                         <au-icon name="RiTelegram2Line" size="16"/>发 布
                                     </div>
-                                    <div class="more-menu-item" v-else><au-icon name="RiReplyLine" size="16"/>下 架
+                                    <div class="more-menu-item" v-else @click="unPublish(doc)"><au-icon name="RiReplyLine" size="16" />下 架
                                     </div>
                                 </div>
                             </div>
@@ -70,9 +70,11 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import docApi from '@/api/endpoints/document'
-import {ref, onMounted, computed} from 'vue'
+import {ref, onMounted, computed, inject} from 'vue'
 import dayjs from 'dayjs';
 
+
+const message = inject('message')
 
 const formatted = (date_time) => (dayjs(date_time).format('YYYY-MM-DD HH:mm'));
 
@@ -89,7 +91,7 @@ const publishForm = computed(()=>[
         'name':'封面',
         'key':'cover',
         'type':'image',
-        'value':`${curDoc.value.cover_img}`
+        'value':curDoc.value.cover_img
     },
     {
         'name':'文章摘要',
@@ -121,12 +123,22 @@ const deleteDoc = () => {
 
 const publishDoc = () => {
     // console.log(curDoc.value)
-    console.log("表单",publishForm.value)
+    if(!publishForm.value[1].value)
+        message("文章摘要不得为空",
+            {type:'error',
+        duration:2000})
+    else{
+        docApi.publish_doc(curDoc.value.id,publishForm.value[0].value,publishForm.value[1].value)
+    }
+}
+
+const unPublish = (doc) => {
+    docApi.unpublish_doc(doc.id,doc.cover_img,doc.short_content)
 }
 
 onMounted(() => {
     getMyDocuments()
-    console.log(useRouter)
+    // console.log(useRouter)
 })
 
 const turn2Page = (menu) => {
@@ -162,12 +174,11 @@ const gotoDocViewerPage = (doc) => {
 }
 
 
-
 // 分页
 // let page = 1
 // let pageSize = 10
+
 const filter = ref({
-    user_id:4,
     status:"0",
     page:1,
     per_page:10

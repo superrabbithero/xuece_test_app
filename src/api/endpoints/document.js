@@ -1,9 +1,12 @@
 import http from '../http.js'
+import { useUserStore } from '@/stores/userStore'
+
+const userStore = useUserStore()
 
 export default {
     reserve_doc(user_id,title,oss_path) {
         const data = {
-          'user_id': user_id,
+          'user_id': userStore.userInfo.id,
           'prefix': oss_path,
           'title': title
         }
@@ -37,16 +40,38 @@ export default {
         })
     },
 
+    unpublish_doc(id,cover_img=null,short_content=null) {
+        const data = { id ,status:0};
+        if (cover_img != null) data.cover_img = cover_img;
+        if (short_content != null) data.short_content = short_content
+        return http.put('/documents/publish', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+    },
+
     get_doc(id){
         const params = {id}
         return http.get('/documents/detail',{ params })
     },
 
-    get_my_docs(params){
+    get_my_docs(filter){
+        const params = {
+            user_id: userStore.userInfo.id,
+            ...filter
+        }
         return http.get('/documents',{params})
+    },
+
+    get_new_docs(filter){
+        const params = {
+            ...filter
+        }
+        return http.get('/documents/home',{params})
     },
 
     delete_doc(id) {
         return http.delete(`/documents?id=${id}`)
-    },
+    }
 }
