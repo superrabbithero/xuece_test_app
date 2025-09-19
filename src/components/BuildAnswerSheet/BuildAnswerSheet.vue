@@ -2,7 +2,7 @@
   <div v-show="isPageLoading" class="au-full-loading">
     <loading-com></loading-com>
   </div>
-  <my-modal v-model="modal_show.linkxuecemodal_show" :dragable="true" >
+  <my-modal v-model="modal_show.linkxuecemodal_show"  :dragable="true" >
     <!-- 自动填涂 -->
     <div class="modal-content">
       <div class="modal-line">
@@ -36,26 +36,11 @@
 
   <my-modal v-model="modal_show.json_show" :dragable="true" >
     <!-- json-view -->
-    <div class="au-grid">
-      <div class="rows end gap10" v-show="json_mode == 0">
-        <div class="cols s12" style="flex-direction: column;">
-          <json-modal v-model:jsonData="cutParamJson" @mouseOver="changeSelectedCut"></json-modal>
-        </div>
-        <div class="cols">
-          <au-button value="取消" size="small" @click="modal_show.json_show=false"/>
-          <au-button value="编辑" size="small" @click="json_mode = 1"/>
-        </div>
-      </div>
-      <div class="rows end gap10" v-show="json_mode == 1">
-        <div class="cols s12">
-          <textarea v-model="cutParamJsonStr" style="width:100%;min-height: 200px;" />
-        </div>
-        <div class="cols">
-          <au-button value="取消" size="small" @click="json_mode = 0"/>
-          <au-button value="保存" variant="filled" size="small" @click="jformattedJsonStr,json_mode = 0"/>
-        </div>
-      </div>
-    </div> 
+    <div class="modal-content" style="max-height: 500px;overflow: auto;">
+     <json-modal :json-data="cutParamJson"></json-modal>
+    </div>
+    <textarea v-model="cutParamJsonStr"/>
+    <button @click="formattedJsonStr">生成Json</button>
   </my-modal>
 
   <my-modal v-model="modal_show.fill_show" :dragable="true">
@@ -113,15 +98,14 @@
 
 
   <div class="sheetview">
-    <div :class="['sheeteditor',{'board-container':toolsParams?.canvasVisible}]" >
+    <div class="sheeteditor" :style="{ height:clientHeight + 'px'}">
 
       <input type="file" ref="uploadpdf" @change="handleFileChange" accept=".pdf" style="display: none;">
       <div class="menu-bar" v-show="toolsParams?.canvasVisible">
         <div class="filenameview">
-          <IconWrapper name="RiArrowLeftSLine" size="22"  @click="toolsParams.canvasVisible = false,cutparamshow = false"/>
+          <IconWrapper name="RiArrowLeftSLine" size="22" @click="toolsParams.canvasVisible = false,cutparamshow = false"/>
           <div class="filename">{{filename}}</div>
         </div>
-        <edit-tools-box v-model="toolsParams" v-if="toolsParams?.canvasVisible" @update-type="updateType" />
 
         <!-- 识别点编辑按钮 -->
         <div  class="filenameview">
@@ -208,86 +192,29 @@
           </div>
         </div>
       </div>
-      <div v-show="toolsParams?.canvasVisible" class="canvasbox" ref="canvasbox">
-        <div class="canvasbox-shadow-cover"></div>
-        <canvas class="sheet-canvas" @pointerdown="MoDown($event)" @pointermove="MoMove($event)" @pointerup="MoUp" v-for="pageIndex in toolsParams.pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="!isDrawing && pageIndex == toolsParams.page_num" ref="pdfcanvas">
-        </canvas>
+      <div v-show="toolsParams?.canvasVisible" class="canvasbox" :style="{ height:clientHeight - 40 + 'px'}" ref="canvasbox">
+        <div class="canvas-container" :style="{width:`${width_temp * toolsParams.scaleCount}px`,height:`${height_temp * toolsParams.scaleCount}px`}">
+          <canvas class="sheet-canvas" v-for="pageIndex in toolsParams.pdfPages " :id="'canvas'+pageIndex" :key="pageIndex" v-show="!isDrawing && pageIndex == toolsParams.page_num" ref="pdfcanvas">
+          </canvas>
+          <au-painter v-if="width_temp && height_temp" background="transparent" position="fixed" :width="width_temp * toolsParams.scaleCount" :height="height_temp * toolsParams.scaleCount"></au-painter>
 
-         <!-- 识别点展示 -->
-        <div ref="cutparampage" class="cutpage" v-show="cutparamshow">
-          <div ref="cutparampanel" class="cutpage-panel" v-if="cutParamJson">
-            <div class="cutpage-section" v-show="toolsParams?.page_num%2===1"
-            :style="{ width:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.width + 'px') : '0',
-                      height:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.height + 'px') : '0',
-                      top:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.y + 'px') : '0',
-                      left:cutParamJson.studentIdRect ? (cutDivScale*cutParamJson.studentIdRect.x + 'px') : '0'}"></div>
-            <div :class="['cutpage-section',{'selected':curJsonPath.includes(`root.section[${s_index}]`)}]" 
-            v-for="(section,s_index) in cutParamJson.section" 
-            :id="`root.section[${s_index}]`"   
-            :key="s_index" 
-            v-show="section.pageNumber == toolsParams?.page_num"
-            :style="{ width:cutDivScale*section.rect.width + 'px',
-                      height:cutDivScale*section.rect.height + 'px',
-                      top:cutDivScale*section.rect.y + 'px',
-                      left:cutDivScale*section.rect.x + 'px'}">
-                      <!-- <span style="position: absolute; color: blue">{{`${cutDivScale} * ${section.rect.y} = ${cutDivScale*section.rect.y}`}}</span> -->
-              <div class="cutpage-section sub" 
-              v-for="(subsection,sub_index) in section.subsections" 
-              :id="`root.section[${s_index}].subsections[${sub_index}]`" 
-              :key="sub_index" 
-              :style="hasFreeStyleGroupsSubsectionStyle(subsection)">
-                      <!-- <div class="cutpage-section sub remove">
-                      </div> -->
-                      <div class="cutpage-section" 
-                      v-for="(freeStyleCellGroup,f_index) in subsection.freeStyleCellGroups" 
-                      :id="`root.section[${s_index}].subsections[${sub_index}].freeStyleCellGroups[${f_index}]`"
-                      :key="f_index">
-                        <div class="cutpage-section sub" 
-                        v-for="(freeStyleCell, index) in freeStyleCellGroup" 
-                        :id="`root.section[${s_index}].subsections[${sub_index}].freeStyleCellGroups[${f_index}].freeStyleCellGroup[${index}]`"
-                        :key="index" 
-                        :style="{ width:'1px',height:'1px',
-                        top:cutDivScale*freeStyleCell.y + 'px',
-                        left:cutDivScale*freeStyleCell.x + 'px'}"></div>
-                      </div>
-                        
-              </div>
-            </div>
+           <!-- 识别点展示 -->
+          <cut-param-page :cutParamJson = "cutParamJson" 
+          :cutDivScale="cutDivScale" 
+          :anchorxy="anchorxy"
+          :width_temp="width_temp"
+          :height_temp="height_temp"
+          :scaleCount="toolsParams.scaleCount"
+          v-if="cutparamshow" />
+
+          <div class="dragged-image" v-for="(image, index) in images" v-show="image" :key="index"  @pointerdown="dragimgdown($event)"  @pointerup="dragimgup" ref="imageRefs">
+            <img  draggable="false" :src="image" width="150" />
+            <IconWrapper name="RiCheckboxCircleFill" size="22" color="#7ed321" style="position: absolute;right: -11px;top: -9px;" @click="darwimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
+            <IconWrapper name="RiCloseCircleFill" size="22" color="#d0021b" style="position: absolute;right: -11px;top: 24px;" @click="delimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
+            <IconWrapper name="RiExpandDiagonalS2Line" size="22" color="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
           </div>
         </div>
-
-        <div class="dragged-image" v-for="(image, index) in images" v-show="image" :key="index"  @pointerdown="dragimgdown($event)"  @pointerup="dragimgup" ref="imageRefs">
-          <img  draggable="false" :src="image" width="150" />
-          <IconWrapper name="RiCheckboxCircleFill" size="22" color="#7ed321" style="position: absolute;right: -11px;top: -9px;" @click="darwimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
-          <IconWrapper name="RiCloseCircleFill" size="22" color="#d0021b" style="position: absolute;right: -11px;top: 24px;" @click="delimg(index)" @pointerdown.prevent="$event.stopPropagation()" @pointerup="$event.stopPropagation()"/>
-          <IconWrapper name="RiExpandDiagonalS2Line" size="22" color="#555" :strokeWidth="2" style="position: absolute;right: -11px;bottom: -9px;" @pointerdown.prevent="resizeImgStart($event,index)" @pointermove="$event.stopPropagation()" @pointerup="stopResize"/>
-        </div>
-
-        <div class="float-tools">
-          <template v-if="toolsParams?.canvasVisible">
-            <div class="edit-item">
-              <au-button iconName="RiZoomInLine" size="small" shape="square" @click="scaleD" variant="text"/>
-            </div>
-            <div class="word-view">
-              {{parseInt(toolsParams?.scaleCount*100)}}%
-            </div>
-            <div class="edit-item">
-              <au-button iconName="RiZoomOutLine" size="small" shape="square" @click="scaleX" variant="text"/>
-            </div>
-          </template>
-          <template v-if="toolsParams?.canvasVisible">
-            <div class="edit-item">
-              <au-button iconName="RiArrowLeftSLine" size="small" shape="square" @click="prePage" variant="text"/>
-            </div>
-            <div class="word-view">
-              {{toolsParams?.page_num}} / {{toolsParams?.pdfPages}}
-            </div>
-            <div class="edit-item">
-              <au-button iconName="RiArrowRightSLine" size="small" shape="square" @click="nextPage" variant="text"/>
-            </div>
-          </template>
-        </div>
-        
+        <edit-tools-box v-model="toolsParams" v-if="toolsParams?.canvasVisible" @update-type="updateType" />
       </div>
     </div>            
   </div>
@@ -296,6 +223,8 @@
 
 
 <script setup>
+import CutParamPage from './CutParamPage'
+
 import * as pdfjsLib from "pdfjs-dist";
 
 import EditToolsBox from "@/components/EditToolsBox.vue";
@@ -315,14 +244,6 @@ const ossStore = useOssStore();
 
 const toast = inject('toast')
 
-const json_mode = ref(0)
-
-const curJsonPath = ref("")
-
-const changeSelectedCut = (path) => {
-  curJsonPath.value = path
-}
-
 //工具栏参数
 const toolsParams = ref({
   canvasVisible:false,
@@ -341,28 +262,16 @@ const tool_type = ref("move")
 const pdfDoc = ref(null)
 // const page_num = ref(1)
 const penColor = ref("#000")
-const hlpenColor = ref("#000")
-const penWidth = ref(4)
 
-const hlpenWidth = ref(20)
-const penClick = ref(false)
-const startAxisX = ref(0)
-const startAxisY = ref(0)
-const controlPointX = ref(0)
-const controlPointY = ref(0)
-const points = ref([])
-const beginPoint = ref({x:0, y:0})
 // const history = ref([])
 const historys = ref([])
 const cur_canvas = ref(null)
 const cur_ctx = ref(null)
-const undo = ref(false)
 // const pdfPages = ref(0)
 // const scaleCount = ref(0.5)
 const width_temp = ref(0)
 const height_temp = ref(0)
 const clientHeight = ref(document.documentElement.clientHeight - 145)
-const draged = ref(false)
 const disx = ref(0)
 const disy = ref(0)
 const canvasX = ref(0)
@@ -392,7 +301,6 @@ const pdfDataList = ref([])
 const pdfFromLinkDataList = ref([])
 
 const cutparampanel = ref(null)
-const cutparampage = ref(null)
 const pdfcanvas = ref(null)
 const canvasbox = ref(null)
 const uploadpdf = ref(null)
@@ -435,27 +343,7 @@ const reversedLinkList = computed(() => {
     return [...pdfFromLinkDataList.value].reverse()
 }) 
 
-const hasFreeStyleGroupsSubsectionStyle = computed(() => {
-  return (subsection) => {
-    if (subsection.freeStyleCellGroups) {
-      return { 
-        width: '0', 
-        height: '0', 
-        top: cutDivScale.value * subsection.y + 'px', 
-        left: cutDivScale.value * subsection.x + 'px',
-        border: 'none',
-        boxSizing: 'border-size'
-      }
-    } else {
-      return { 
-        width: '1px', 
-        height: '1px', 
-        top: cutDivScale.value * subsection.y + 'px', 
-        left: cutDivScale.value * subsection.x + 'px'
-      }
-    }
-  }
-})
+
 
 
 onMounted(() => {
@@ -477,11 +365,11 @@ onMounted(() => {
 
   // 快捷键绑定
   key('⌘+z, ctrl+z', () => {
-    retrue()
+    console.log('⌘+z, ctrl+z')
   })
 
   key('⌘+s, ctrl+s', () => {
-    saveEditedImage()
+    console.log('⌘+s, ctrl+s')
   })
 })
 
@@ -616,7 +504,6 @@ const watermark = (text) => {
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    addHistoy(i,canvas)
     // console.log(i)
   }
 }
@@ -721,7 +608,6 @@ const drop = (img,stopAxisX,stopAxisY) => {
 
   ctx.drawImage(img, x/toolsParams.value.scaleCount, y/toolsParams.value.scaleCount, img.width/toolsParams.value.scaleCount, img.height/toolsParams.value.scaleCount);
 
-  addHistoy()
 
 }
 
@@ -824,7 +710,6 @@ const nextPage = () => {
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
 
-    // this.addHistoy();
 }
 const prePage = () => {
   if(toolsParams.value.page_num > 1)
@@ -833,7 +718,6 @@ const prePage = () => {
     cur_ctx.value = cur_canvas.value.getContext("2d");
     cur_canvas.value.style.left = canvasX.value;
     cur_canvas.value.style.top = canvasY.value;
-    // this.addHistoy();
 }
 
 const renderPage = (num) => {
@@ -906,193 +790,11 @@ const saveEditedImage = (text=null) => {
     }   
   }
 }
-const MoDown = (event)=>{
-  // console.log(tool_type.value)
-  if(tool_type.value == 'move'){
-    draged.value = true
-    const el = cur_canvas.value
-    el.style.cursor='grabbing'
-    disx.value = event.pageX - el.offsetLeft
-    disy.value = event.pageY - el.offsetTop
-  }else{
-    points.value = []
-    points.value.push({x:event.pageX,y:event.pageY});
-    beginPoint.value = points.value[0]
-    penClick.value = true;
-    controlPointX.value = 0;
-    controlPointY.value = 0
-    startAxisX.value = event.pageX;
-    startAxisY.value = event.pageY;
-    // const el = canvasbox.value
-    // console.log(el.offsetLeft,el.offsetTop)
-    // console.log(event.pageX,event.pageY)
-  }
-}
-const MoUp = () => {     
-  if(tool_type.value == 'move'){
-    draged.value = false
-    cur_canvas.value.style.cursor='grab'
-    canvasX.value = cur_canvas.value.style.left
-    canvasY.value = cur_canvas.value.style.top
-  }else{
-    penClick.value = false;
-    addHistoy()
-  }
-}
-const drawLine = (startp,ctrlp,endp,cl,ct) => {
-  cur_ctx.value.beginPath();
-  cur_ctx.value.moveTo((startp.x-cl)/toolsParams.value.scaleCount,(startp.y-ct)/toolsParams.value.scaleCount)
-  cur_ctx.value.quadraticCurveTo((ctrlp.x-cl)/toolsParams.value.scaleCount,(ctrlp.y-ct)/toolsParams.value.scaleCount,(endp.x-cl)/toolsParams.value.scaleCount,(endp.y-ct)/toolsParams.value.scaleCount)
-  cur_ctx.value.strokeStyle = penColor.value;//设置颜色
-  cur_ctx.value.lineWidth = penWidth.value;//设置大小
-  cur_ctx.value.lineCap = "round";//设置两端的形状
-  cur_ctx.value.stroke();// stroke() 方法来绘制线条
-  cur_ctx.value.closePath();
 
-}
-const MoMove = (event)=>{
-  if(tool_type.value == 'move'){
-      if(draged.value == true){
-      const el = cur_canvas.value
-      // const pg = cutparampage.value
-      // console.log(el.offsetLeft, el.offsetTop)
-      // console.log(disx.value,disy.value)
-      cutparampage.value.style.left = el.style.left = event.pageX - disx.value + 'px';
-      cutparampage.value.style.top = el.style.top = event.pageY - disy.value + 'px';
-    }
-  }else{
-    if(!penClick.value) return;
-    const canvas = cur_canvas.value;
-    const el = canvasbox.value
-    const ctx = cur_ctx.value;
-    const stopAxisX = event.pageX;
-    const stopAxisY = event.pageY;
-    var scrolltop = el.scrollTop;
-    var scrollleft = el.scrollLeft;
-    const cl = el.offsetLeft + canvas.offsetLeft - scrollleft;
-    const ct = el.offsetTop + canvas.offsetTop - scrolltop;
-    
-    if(tool_type.value == 'pencil'){    
-      var endp = {x:stopAxisX, y:stopAxisY}
-      points.value.push(endp)
 
-      if(points.value.length > 2){
-        const lastTwoPoints = points.value.slice(-2);
-        const controlPoint = lastTwoPoints[0];
-        const endPoint = {
-            x: (lastTwoPoints[0].x + lastTwoPoints[1].x) / 2,
-            y: (lastTwoPoints[0].y + lastTwoPoints[1].y) / 2,
-        }
-        drawLine(beginPoint.value, controlPoint, endPoint, cl, ct);
-        beginPoint.value = endPoint;
-      }
-    }else if(tool_type.value == 'rect'){
-      //创建路径
-
-      // ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.beginPath();
-      //设置矩形填充颜色
-      ctx.fillStyle="#000";
-      //绘制矩形
-      showLastHistory()
-      ctx.fillRect((startAxisX.value-cl)/toolsParams.value.scaleCount,(startAxisY.value - ct)/toolsParams.value.scaleCount,(stopAxisX-cl-startAxisX.value+cl)/toolsParams.value.scaleCount,(stopAxisY - ct-startAxisY.value + ct)/toolsParams.value.scaleCount);
-      //关闭路径
-      ctx.closePath();
-    }else if(tool_type.value == 'highlight'){
-      
-      ctx.beginPath();
-      showLastHistory()
-      ctx.moveTo((startAxisX.value - cl)/toolsParams.value.scaleCount, (startAxisY.value - ct)/toolsParams.value.scaleCount);//moveTo(x,y) 定义线条开始坐标
-
-      ctx.lineTo((stopAxisX-cl)/toolsParams.value.scaleCount,(startAxisY.value - ct)/toolsParams.value.scaleCount );//lineTo(x,y) 定义线条结束坐标
-
-      ctx.strokeStyle = hlpenColor.value;//设置颜色
-      ctx.lineWidth = hlpenWidth.value;//设置大小
-      ctx.lineCap = "butt";//设置两端的形状 context.lineCap="butt|round|square";
-      ctx.stroke();// stroke() 方法来绘制线条
-      ctx.closePath();
-    }
-  }
-  
-
-}
-
-const retrue = () => {
-  var history = historys.value[toolsParams.value.page_num-1];
-  
-  if(history && history.length > 1){
-    
-    history.pop();
-    showLastHistory();
-  }
-  undo.value = false
-}
-const addHistoy = (pageNum=toolsParams.value.page_num, canvas=cur_canvas.value) => {
-  var ctx = canvas.getContext("2d")
-
-  historys.value[pageNum-1].push({
-    data: ctx.getImageData(0, 0, canvas.width, canvas.height)
-  })
-
-  if (historys.value[pageNum-1].length > 20) {
-    historys.value[pageNum-1].shift()
-  }
-}
-const showLastHistory = () => {
-  var history = historys.value[toolsParams.value.page_num-1];
-  cur_ctx.value.putImageData(history[history.length - 1]['data'], 0, 0)
-}
-// pdf放大
-const scaleD = ()=> {
-  if (toolsParams.value.scaleCount == 2.0) {
-    return
-  }
-  toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) + 0.1
-  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount.toFixed(1))
-  // console.log(cur_canvas.value.style.width)
-  // console.log('放大：'+ toolsParams.value.scaleCount)
-  pdfcanvas.value.forEach(item => {
-    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
-    item.style.width = widthTemp + 'px'
-    item.style.height = heightTemp + 'px'
-  })
-  if(cutparamshow.value)
-    showCutParam(true)
-}
-// pdf缩小
-const scaleX = () => {
-  console.log(toolsParams.value.scaleCount)
-  if (toolsParams.value.scaleCount == 0.1) {
-    return
-  }
-  toolsParams.value.scaleCount =  parseFloat(toolsParams.value.scaleCount) - 0.1
-  toolsParams.value.scaleCount = parseFloat(toolsParams.value.scaleCount.toFixed(1))
-
-  console.log(toolsParams.value.scaleCount)
-
-  pdfcanvas.value.forEach(item => {
-    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
-    // console.log('缩小后的宽高：',widthTemp,heightTemp)
-    item.style.width = widthTemp + 'px'
-    item.style.height = heightTemp + 'px'
-  })
-  if(cutparamshow.value)
-    showCutParam(true)
-  // console.log('缩小'+toolsParams.value.scaleCount)
-}
-
-//在画布中添加图片
-// const addimge = (image)=> {
-//   let ctx = cur_ctx.value;
-//   ctx.drawImage(image,0,0);
-// }
-
-const showCutParam = (ifScale = false) =>{
+const showCutParam = (ifScale = false) => {
   
   if(cutParamJson?.value == null){
-
     modal_show.value.linkxuecemodal_show = false
     // console.log(this.linkxuecemodal_show)
     return
@@ -1106,26 +808,27 @@ const showCutParam = (ifScale = false) =>{
     if (!result) {
       // return
     }
-    var json = cutParamJson.value
-    // console.log(json.pageSize.width,json.pageSize.height)
-    var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
+    console.log(cutparampanel.value)
+    // var json = cutParamJson.value
+    // // console.log(json.pageSize.width,json.pageSize.height)
+    // var widthTemp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
+    // var heightTemp = height_temp.value * parseFloat(toolsParams.value.scaleCount)
     
-    cutparampage.value.style.width = widthTemp + 'px'
-    cutparampage.value.style.height = heightTemp + 'px'
+    // cutparampage.value.style.width = widthTemp + 'px'
+    // cutparampage.value.style.height = heightTemp + 'px'
 
-    var panel = cutparampanel.value
+    // var panel = cutparampanel.value
 
-    // cutDivScale.value = widthTemp/json.pageSize.width
+    // // cutDivScale.value = widthTemp/json.pageSize.width
 
-    widthTemp = cutDivScale.value*json.panelSize.width
-    heightTemp = cutDivScale.value*json.panelSize.height
+    // widthTemp = cutDivScale.value*json.panelSize.width
+    // heightTemp = cutDivScale.value*json.panelSize.height
 
 
-    panel.style.width = widthTemp + 'px'
-    panel.style.height = heightTemp + 'px'
-    panel.style.marginTop = (anchorxy.value.y-3)*toolsParams.value.scaleCount + 'px'
-    panel.style.marginLeft = (anchorxy.value.x-3)*toolsParams.value.scaleCount + 'px'
+    // panel.style.width = widthTemp + 'px'
+    // panel.style.height = heightTemp + 'px'
+    // panel.style.marginTop = (anchorxy.value.y-3)*toolsParams.value.scaleCount + 'px'
+    // panel.style.marginLeft = (anchorxy.value.x-3)*toolsParams.value.scaleCount + 'px'
     cutparamshow.value = true
   }
 }
@@ -1134,8 +837,8 @@ const showCutParam = (ifScale = false) =>{
 const findfirstanchor = () => {
   if(cutParamJson?.value?.pageSize?.width){
     // var width_temp = width_temp.value * parseFloat(toolsParams.value.scaleCount)
-    cutDivScale.value = width_temp.value * toolsParams.value.scaleCount/cutParamJson.value.pageSize.width
-    console.log(cutDivScale.value,width_temp.value,toolsParams.value.scaleCount,cutParamJson.value.pageSize.width,anchorxy.value)
+    cutDivScale.value = width_temp.value * parseFloat(toolsParams.value.scaleCount)/cutParamJson.value.pageSize.width
+    // console.log(cutDivScale.value)
   }else{
     console.log("参数信息中没找到")
     return false
@@ -1288,7 +991,6 @@ const fillAnswerCard = () => {
       if(pageNum != Eachsection.pageNumber && Eachsection.pageNumber <= pdfPages){
         if(canvas && ctx){
           ctx.closePath();
-          addHistoy(pageNum,canvas)
         }
         pageNum = Eachsection.pageNumber
         canvas = document.getElementById("canvas"+pageNum)
@@ -1391,7 +1093,6 @@ const fillAnswerCard = () => {
         }
       }
     })
-    addHistoy(pageNum,canvas)
   }else{
     console.log("未绑定试卷识别Json")
   }
@@ -1427,9 +1128,7 @@ const changePenColor = (color) => {
   penColor.value = color
 }
 
-const updatePenWidth = (width) => {
-  penWidth.value = width
-}
+
 
 const saveData = async () => {
   var index = 0
@@ -1513,23 +1212,25 @@ const saveData = async () => {
 provide('pageMethods', {
   nextPage,
   prePage,
-  scaleD,
-  scaleX,
   // addimge,
   clearImges,
   saveEditedImage,
   push2images,
   changeBarcodeUrl,
   changeType,
-  changePenColor,
-  updatePenWidth,
-  retrue
+  changePenColor
 })
 
 
 </script>
 
 <style scoped>
+.canvas-container {
+  position: absolute;
+  left: 1rem ;
+  top: 1rem;
+}
+
 .sheetview {
   margin: 20px 30px;
   padding: 10px 20px ;
@@ -1542,20 +1243,10 @@ provide('pageMethods', {
 .canvasbox {
   position: relative;
   width: 100%;
-  height:100%;
-  overflow: hidden;
+  overflow: auto;
   border-radius: 12px;
   background-color: var(--canvas-bgc);
   border: var(--box-border);
-}
-
-.canvasbox-shadow-cover{
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 950;
-  border-radius: 12px;
-  box-shadow: inset 2px 2px 8px 0px #0004,inset -1px -1px 2px #fff5;
 }
 
 .sheet-canvas{
@@ -1564,9 +1255,7 @@ provide('pageMethods', {
   box-shadow: var(--box-shadow);
   touch-action: none;
 /*  transform: translateX(-50%);*/
-  left: 1rem ;
-  top: 1rem;
-  transition: width 0.5s ease,height 0.5s ease
+  
 }
 
 .filenameview{
@@ -1730,11 +1419,6 @@ provide('pageMethods', {
   pointer-events: none;
   top:1rem;
   left: 1rem;
-
-}
-
-.cutpage, .cutpage-section{
-  transition: width 0.5s ease,height 0.5s ease;
 }
 
 .cutpage-panel{
@@ -1748,10 +1432,6 @@ provide('pageMethods', {
   background: none;
   position: absolute;
   box-sizing: border-box;
-}
-
-.cutpage-section.selected {
-  background-color: #f002;
 }
 
 .cutpage-section.sub.remove {
@@ -1785,48 +1465,6 @@ provide('pageMethods', {
 .upload-icon:hover {
   color: var(--main-color);
 }
-
-.board-container{
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 850;
-  background-color: var(--box-bgc);
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-}
-
-.float-tools{
-  display: flex;
-  position: absolute;
-  bottom:0.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  align-items: center;
-  border-radius: 16px;
-  overflow: hidden;
-  color:#aaa;
-  mix-blend-mode: difference;
-  transition:background 0.3s ease
-}
-
-
-
-.float-tools:hover{
-  background: #fff2;
-}
-
-.edit-item {
-
-}
-
-.word-view {
-  margin: 0 4px;
-}
-
 
 
 </style>

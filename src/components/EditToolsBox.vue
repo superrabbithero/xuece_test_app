@@ -10,40 +10,39 @@
       <div class="modal-line center">
         <img v-show="barcode_url" :src="barcode_url" @click="selectimg($event)"/>
       </div>
-      <div v-show="false">
-        <svg ref="barcodeRef" ></svg>
+      <div v-show="true">
+        <svg ref="barcodeRef" style="box-sizing: border-box;"></svg>
       </div>
       <canvas id="canvas-codebar" v-show="false"/>
     </div>
 
   </my-modal>
-  <div  class="touch-toolsbox">
+  <div :class="['touch-toolsbox',{'locked':locked}]" ref="touchToolsbox">
     <div class="toolsbox" ref="toolsbox" id="toolsbox">
       <div class="edit-group">
-        <div id="move" :class="[type=='move'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <icon-wrapper name="RiDragMoveLine" color="#eee" size="25" />
+        <div id="move" :class="[type=='move'?'edit-item active':'edit-item']">
+          <au-button iconName="RiDragMoveLine" size="small" shape="square" @click="switchtools('move')" variant="text"/>
         </div>
-        <div id="pencil" :class="[type=='pencil'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <icon-wrapper name="RiPencilLine" color="#eee" size="25" />
+        <div id="pencil" :class="[type=='pencil'?'edit-item active':'edit-item']">
+          <au-button iconName="RiPencilLine" size="small" shape="square" @click="switchtools('pencil')" variant="text"/>
           <div v-if="type=='pencil'" class="text-editbox">
-            <div class="color-item black" @click="getPenColor($event,'#000')"></div>
-            <div class="color-item red" @click="getPenColor($event,'#f00')"></div>
-            <div class="color-item orange" @click="getPenColor($event,'#ffa500')"></div>
-            <div class="color-item yellow" @click="getPenColor($event,'#ff0')"></div>
-            <div class="color-item green" @click="getPenColor($event,'#90ee90')"></div>
-            <div class="color-item blue" @click="getPenColor($event,'#87ceeb')"></div>
-            <div class="color-item white" @click="getPenColor($event,'#fff')"></div>
-            <input type="range" value="2" max="15" @change="changePenWidth" id="penWidth-range">
+            <div class="text-editbox-groups">
+              <template v-for="color in colorList" :key="color">
+                <div class="color-item" :style="{backgroundColor:color,outlineColor:`${color}55`}" @click="getPenColor($event,color)"></div>
+              </template>
+            </div>
+            <au-slider v-model="penWidth" style="width: 169px;" :max="30" />
+            <!-- <input type="range" value="2" max="15" @change="changePenWidth" id="penWidth-range"> -->
           </div>
         </div>
-        <div id="highlight" :class="[type=='highlight'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <icon-wrapper name="RiMarkPenLine" color="#eee" size="25" />
+        <div id="highlight" :class="[type=='highlight'?'edit-item active':'edit-item']">
+          <au-button iconName="RiMarkPenLine" size="small" shape="square" @click="switchtools('highlight')" variant="text"/>
         </div>
-        <div id="rect" :class="[type=='rect'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <icon-wrapper name="RiRectangleLine" color="#eee" size="25" />
+        <div id="rect" :class="[type=='rect'?'edit-item active':'edit-item']">
+          <au-button iconName="RiRectangleLine" size="small" shape="square" @click="switchtools('rect')" variant="text"/>
         </div>
-        <div id="pic" :class="[type=='pic'?'edit-item active':'edit-item']" @click="switchtools($event)">
-          <icon-wrapper name="RiImageLine" color="#eee" size="25" />
+        <div id="pic" :class="[type=='pic'?'edit-item active':'edit-item']">
+          <au-button iconName="RiImageLine" size="small" shape="square" @click="switchtools('pic')" variant="text"/>
           <div v-if="type=='pic'" class="pic-editbox">
             <div class="pics"> 
               <img src="sheeteditorimg\img1.jpg" @click="selectimg($event)"/>
@@ -53,48 +52,30 @@
             </div>
           </div>
         </div>
-        <div class="edit-item" @click="retrue">
-          <icon-wrapper name="RiArrowGoBackLine" color="#eee" size="25" />
-        </div>
-      </div>
-      <div class="edit-group zoom" v-if="modelValue?.canvasVisible">
-        <div class="edit-item" @click="scaleD">
-          <icon-wrapper name="RiZoomInLine" color="#eee" size="25" />
-        </div>
-        <div class="edit-item" @click="scaleX">
-          <icon-wrapper name="RiZoomOutLine" color="#eee" size="25" />
-        </div>
-        <div class="word-view">
-          {{parseInt(modelValue?.scaleCount*100)}}%
-        </div>
-      </div>
-      <div class="edit-group pag" v-if="modelValue?.canvasVisible">
-        <div class="edit-item" @click="prePage">
-          <icon-wrapper name="RiArrowLeftSLine" color="#eee" size="25" />
-        </div>
-        <div class="word-view">
-          {{modelValue?.page_num}} / {{modelValue?.pdfPages}}
-        </div>
-        <div class="edit-item"  @click="nextPage">
-          <icon-wrapper name="RiArrowRightSLine" color="#eee" size="25" />
+        <div class="edit-item">
+          <au-button iconName="RiArrowGoBackLine" size="small" shape="square" @click="retrue" variant="text"/>
         </div>
       </div>
       <div class="edit-group">
-        <div class="edit-item dld" @click="saveEditedImage(watermarktext)">
-          <icon-wrapper name="RiDownloadLine" color="#eee" size="25" />
+        <div class="edit-item dld">
+          <au-button iconName="RiDownloadLine" size="small" shape="square" @click="saveEditedImage(watermarktext)" variant="text"/>
         </div>
         <input type="text" id="download-add-watermark" :class="{'edit-input d-watermark':true,'wmshow':watermarktext}" placeholder="默认无水印" v-model="watermarktext"/>
-        <div class="edit-item" @click="codebar_show=!codebar_show">
-          <IconWrapper name="RiBarcodeBoxLine" color="#eee" size="25" />
+        <div class="edit-item">
+          <au-button iconName="RiBarcodeBoxLine" size="small" shape="square" @click="codebar_show=!codebar_show" variant="text"/>
         </div>
-        <div class="edit-item" @click="canvas2fullscreen">
-          <IconWrapper v-if="fullscreen" name="RiFullscreenExitLine" theme="filled" color="#eee" size="25" />
-          <IconWrapper v-else name="RiFullscreenLine" color="#eee" size="25" />
+        <div class="edit-item">
+          <au-button 
+          :iconName="`${fullscreen?'RiFullscreenExitLine':'RiFullscreenLine'}`" 
+          size="small" 
+          shape="square" 
+          @click="canvas2fullscreen" 
+          variant="text"/>
         </div>
         
       </div>  
-      <div class="box-drag" @mousedown="dragdown($event,'toolsbox')"  @mouseup="dragup">
-        <icon-wrapper name="RiDraggable" size="25" color="#aaa"/>
+      <div class="box-drag" @pointerdown="dragdown">
+        <au-icon name="RiDraggable" size="22" color="#aaa"/>
       </div>
     </div>
   </div>
@@ -109,20 +90,21 @@ import { ref, inject, watch, defineEmits, defineProps } from 'vue'
 
 const emit = defineEmits(['update-type','update:modelValue'])
 
-defineProps({
+const props = defineProps({
   modelValue:{
     type:Object,
     required: true
   },
 })
 
+const colorList = ['#000000', '#fb351e', '#f47d1e', '#f0cc1b', '#40ceb0', '#31a9f9', '#6663f6','#ffffff']
+
+const touchToolsbox = ref(null)
+
+const toolsbox = ref(null)
+
 
 const {
-  nextPage,
-  prePage,
-  scaleD,
-  scaleX,
-  // addimge,
   clearImges,
   saveEditedImage,
   push2images,
@@ -134,6 +116,8 @@ const {
 
 
 import JsBarcode from 'jsbarcode';
+
+const locked = ref(true)
 
 const type = ref("move")
 // const tmptype = ref("")
@@ -176,9 +160,7 @@ watch(type, (newVal, oldVal) => {
 //   }
 // }
 
-const switchtools = (e) => {
-  const type = e.currentTarget.id
-  console.log("switchtools",type)
+const switchtools = (type) => {
   gettoolsbystring(type)
 }
 
@@ -205,22 +187,42 @@ const gettoolsbystring = (typeId) => {
   // }
 }
 
-const dragdown = (e, id) => {
-  dragedel.value = document.getElementById(id)
-  document.addEventListener('mousemove', dragmove)
-  disx.value = e.pageX - dragedel.value.offsetLeft
-  disy.value = e.pageY - dragedel.value.offsetTop
+const dragdown = (e) => {
+  dragedel.value = true
+  locked.value = false
+  document.addEventListener('pointermove', dragmove)
+  document.addEventListener('pointerup', dragup)
+  disx.value = e.pageX - toolsbox.value.offsetLeft
+  disy.value = e.pageY - toolsbox.value.offsetTop
 }
 
 const dragup = () => {
-  dragedel.value = null
+  dragedel.value = false
+  const rect1 = touchToolsbox.value.getBoundingClientRect();
+  const y1 = rect1.top;
+  
+  // 获取第二个div的y坐标（相对于视口）
+  const rect2 = toolsbox.value.getBoundingClientRect();
+  const y2 = rect2.top;
+
+  // 计算y坐标的绝对差值
+  const difference = Math.abs(y1 - y2);
+
+  locked.value = difference <= 100
+
+  if(locked.value){
+    toolsbox.value.style.top = 'unset'
+    toolsbox.value.style.left = 'unset'
+  }
+
   document.removeEventListener('mousemove', dragmove)
+  document.removeEventListener('pointerup', dragup)
 }
 
 const dragmove = (e) => {
   if(dragedel.value) {
-    dragedel.value.style.left = e.pageX - disx.value + 'px'
-    dragedel.value.style.top = e.pageY - disy.value + 'px'
+    toolsbox.value.style.left = e.pageX - disx.value + 'px'
+    toolsbox.value.style.top = e.pageY - disy.value + 'px'
   }
 }
 
@@ -242,10 +244,11 @@ const getPenColor = (e, color) => {
   // emit('update-pen-color', color) // 通知父组件更新笔颜色
 }
 
-const changePenWidth = () => {
-  const range = document.getElementById('penWidth-range')
-  updatePenWidth(parseInt(range.value))
-}
+const penWidth = ref(props.modelValue.penWidth)
+
+watch(penWidth , ()=>{
+  updatePenWidth(parseInt(penWidth.value))
+})
 
 const selectimg = (e) => {
   const image = e.currentTarget
@@ -293,6 +296,7 @@ const generateBarcode = () => {
   }
 
   JsBarcode(barcodeRef.value, barcodeData.value, {
+    background:"#fff0",
     height: 100,
     fontSize: 18,
     fontOptions: 'bold',
@@ -300,6 +304,21 @@ const generateBarcode = () => {
   })
 
   const svg = barcodeRef.value
+
+  const width = svg.clientWidth || parseInt(svg.getAttribute('width'));
+  const height = svg.clientHeight || parseInt(svg.getAttribute('height'));
+
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', '0');
+  rect.setAttribute('y', '0');
+  rect.setAttribute('width', width);
+  rect.setAttribute('height', height);
+  rect.setAttribute('fill', '#fff'); // 透明填充
+  rect.setAttribute('stroke', 'black'); // 边框颜色
+  rect.setAttribute('stroke-width', '1'); // 边框粗细
+
+  svg.insertBefore(rect, svg.firstChild);
+
   const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml' })
   const tempUrl = URL.createObjectURL(svgBlob)
 
@@ -312,37 +331,56 @@ const generateBarcode = () => {
 <style scoped>
 
 .touch-toolsbox {
-  position: fixed; 
-  bottom: 0;
-  left: 0;
+  position: relative; 
+  min-width: 546px;
   width: 100%;
+  height: 32px;
   display: flex;
   justify-content: center;
-  align-items: end;
-/*  pointer-events: none;*/
+  align-items: center;
+  width: fit-content;
+}
+
+.touch-toolsbox.locked{
+/*  position: relative;*/
+  
+}
+
+.touch-toolsbox.locked .toolsbox {
+  position: relative;
+  box-shadow: none;
+  border-radius: unset;
+  background: transparent;
 }
 
 .toolsbox{
+  box-sizing: border-box;
+/*  min-width: 546px;*/
   position: absolute;
-  background-color: #333;
-  margin-bottom: 16px;
-  padding: 8px 30px 8px 18px;
+  display: flex;
+  gap: 2px;
+  background-color: var(--box-bgc);
+  box-shadow: var(--box-shadow);
+  padding: 8px 0 8px 8px;
   border-radius: 8px;
+  align-items: center;
+  z-index: 999;
 }
 
+
+
 .edit-group {
-  display: inline-block;
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 
 
 .edit-item {
-  display: inline-block;
-  padding: 5px 6px 6px 6px;
-  margin: 0 2px;
+  width: 32px;
+  height: 32px;
   border-radius: 4px;
-  pointer-events: auto;
-  line-height: 0;
 }
 
 .edit-input{
@@ -385,18 +423,7 @@ const generateBarcode = () => {
 }
 
 
-@media (any-hover:hover){
-  .edit-item:hover {
-    background-color: #444;
-  }
-  .color-item:hover {
-  /*  border: 2px solid #fff;*/
-  transform: scale(1.2);
-  }
-}
-.edit-item:active {
-  background-color: #444;
-}
+
 
 .color-item:active {
   /*  border: 2px solid #fff;*/
@@ -404,37 +431,41 @@ const generateBarcode = () => {
 }
 
 .edit-item:active {
-  background-color: #555;
+  background-color: #8884;
 }
 
 .edit-item.active {
-  background-color: #444;
+  background-color: #8884;
 }
 
 .word-view {
   -moz-user-select : none;
   -khtml-user-select : none;
   user-select: none;
-  display: inline-block;
-  color: #aaa;
-  font-weight: 100;
+  display: flex;
+  align-items: center;
   font-family: auto;
-  vertical-align: 5px;
-  padding: 5px 6px;
 }
 
 .edit-group.pag {
   display: inline-block;
 }
 
+.toolsbox:hover .box-drag{
+  opacity: 1;
+
+}
+
 .box-drag {
-  position: absolute;
-  height: 25px;
-  width: 25px;
-  padding-top:5px ;
-  right: 2px;
-  top: 8px;
-  pointer-events: auto;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  opacity: 1;
+  transition: 0.3s ease;
+}
+
+.locked .box-drag {
+  opacity: 0;
 }
 
 .textinput {
@@ -462,16 +493,21 @@ const generateBarcode = () => {
 .text-editbox {
   position: absolute;
   display: flex;
-  flex-flow:row wrap;
-/*  flex-direction: column;*/
+  flex-direction: column;
   justify-content: center;
-/*  align-items: center;*/
-/*  height: 30px;*/
-  top: -28px;
+/*  top: -28px;*/
   padding: 8px 8px;
-  background-color: #333;
-  border: 1px solid #555;
+  background: var(--box-bgc);
+  border: var(--box-border);
   border-radius: 5px;
+  gap: 6px;
+  width: max-content;
+  align-items: center;
+}
+
+.text-editbox-groups{
+   display: flex;
+   gap: 6px;
 }
 
 .text-editbox > input {
@@ -497,50 +533,20 @@ const generateBarcode = () => {
 }
 
 .color-item {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  margin-right: 6px;
-  transition: transform 0.3s ease;  /* 添加过渡效果 */
-  cursor: pointer; 
-}
+    box-sizing: border-box;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0px 0px 0px 1px #0002;
 
-
-
-.color-item.active {
-/*  border: 2px solid #fff;*/
-transform: scale(1.2);
-}
-
-.color-item.black {
-  background-color: #000;
-}
-
-.color-item.red{
-  background-color: #ff0000;
-}
-
-.color-item.orange{
-  background-color: #ffa500;
-}
-
-.color-item.yellow{
-  background-color: #ff0;
-}
-
-.color-item.green{
-  background-color: #90ee90;
-}
-
-.color-item.blue{
-  background-color: #87ceeb;
-}
-
-.color-item.white{
-  background-color: #fff;
-}
+  }
+.color-item.active,.color-item:hover {
+    outline: 4px solid #fff0;
+  }
 
 .pic-editbox {
   position: absolute;

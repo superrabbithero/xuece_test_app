@@ -31,7 +31,7 @@
     "vditor": "^3.11.1",
     "vue": "^3.2.13",
     "vue-axios": "^3.5.2",
-    "vue-json-pretty": "^2.4.0",
+    "vue-json-pretty": "^2.5.0",
     "vue-router": "4.2.4"
   },
   "devDependencies": {

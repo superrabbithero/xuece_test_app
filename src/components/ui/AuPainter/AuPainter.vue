@@ -1,10 +1,11 @@
 <template>
-  <div v-if="false" style="position: fixed;top:90px">
-    {{state.view}}{{state.scaleCount}}
+  <div v-if="true" style="position: fixed;top:90px;z-index: 999;">
+    <!-- {{state.view}}{{state.scaleCount}} -->
     <input type="button" class="fill" value="清空" @click="clearAll"/>
     <input type="button" class="fill" value="重绘" @click="reDraw"/>
     <input type="button" class="fill" value="放大" @click="zoomIn"/>
     <input type="button" class="fill" value="缩小" @click="zoomOut"/>
+    <input type="button" class="fill" value="压力测试" @click="pressTest"/>
   </div>
   <div class="canvas-area" ref="canvasArea">
     
@@ -20,7 +21,8 @@
       <div class="liquid-glass"></div>
     </div>
     
-    <AuPainterToolsBar :position="position" v-model="state.tool" @changeSetting="preferences.modal_show = !preferences.modal_show"/>
+    <AuPainterToolsBar :position="position" v-model="state.tool" @changeSetting="preferences.modal_show = !preferences.modal_show">
+    </AuPainterToolsBar>
 
   </div>
 
@@ -34,7 +36,7 @@ import { ref, reactive,  onMounted, onBeforeUnmount,defineProps} from 'vue'
 import AuPainterPreferences from './AuPainterPreferences'
 import AuPainterToolsBar from './AuPainterToolsBar'
 
-defineProps({
+const props = defineProps({
   show: {
     type: Boolean,
     default: true
@@ -44,6 +46,10 @@ defineProps({
   position: {
     type: String,
     default: "fixed"
+  },
+  background:{
+    type: String,
+    default: "dot"
   }
 })
 
@@ -146,15 +152,17 @@ const init = () => {
   canvasHistory.value.style.width = canvasArea.value.clientWidth + "px"
   canvasHistory.value.style.height = canvasArea.value.clientHeight + "px"
 
-  canvasBcg.value.width = canvasArea.value.clientWidth * state.dpr
-  canvasBcg.value.height = canvasArea.value.clientHeight * state.dpr
-  canvasBcg.value.style.width = canvasArea.value.clientWidth + "px"
-  canvasBcg.value.style.height = canvasArea.value.clientHeight + "px"
+  if(props.background != "transparent"){
+    canvasBcg.value.width = canvasArea.value.clientWidth * state.dpr
+    canvasBcg.value.height = canvasArea.value.clientHeight * state.dpr
+    canvasBcg.value.style.width = canvasArea.value.clientWidth + "px"
+    canvasBcg.value.style.height = canvasArea.value.clientHeight + "px"
 
-  //初始化背景层
-  state.bcgContext = canvasBcg.value.getContext('2d')
-  state.bcgContext.scale(state.dpr,state.dpr)
-  drawBackground()
+    //初始化背景层
+    state.bcgContext = canvasBcg.value.getContext('2d')
+    state.bcgContext.scale(state.dpr,state.dpr)
+    drawBackground()
+  }
 
   //初始化实时层
   state.context = canvas.value.getContext('2d')
@@ -560,6 +568,7 @@ const perpendicularDistance = (point, lineStart, lineEnd)=> {
 const reDraw = () => {
   
   // state.visiblePoints = []
+  console.log(state.allPoints)
 
   state.allPoints.forEach((points)=>{
     // 检查当前笔画是否有至少一个点在可视范围内
@@ -751,6 +760,73 @@ const isPointInCircle = (point, center, radius) => {
   const dy = point.y - center.y;
   return dx * dx + dy * dy <= radius * radius+1;
 };
+
+
+//压力测试模拟
+/**
+ * 生成n个随机路径
+ * @param {number} n - 要生成的路径数量
+ * @param {number} canvasWidth - 画布宽度
+ * @param {number} canvasHeight - 画布高度
+ * @returns {Array} 包含n个随机路径的数组
+ */
+function generateRandomPaths(n, canvasWidth, canvasHeight) {
+  const paths = [];
+  
+  for (let i = 0; i < n; i++) {
+    // 生成随机颜色
+    const color = getRandomColor();
+    
+    // 生成随机点数（1到20之间）
+    const pointCount = Math.floor(Math.random() * 20) + 1;
+    const points = [];
+    
+    // 生成随机点
+    for (let j = 0; j < pointCount; j++) {
+      points.push({
+        x: Math.floor(Math.random() * canvasWidth),
+        y: Math.floor(Math.random() * canvasHeight)
+      });
+    }
+    
+    // 生成随机线宽（1到10之间）
+    const width = Math.floor(Math.random() * 10) + 1;
+    
+    // 生成随机工具类型（假设tool是1-5之间的整数）
+    const tool = 1;
+    
+    // 创建路径对象
+    paths.push({
+      color,
+      points,
+      tool,
+      width
+    });
+  }
+  
+  return paths;
+}
+
+/**
+ * 生成随机十六进制颜色
+ * @returns {string} 随机颜色代码
+ */
+function getRandomColor() {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+}
+
+const pressTest = () => {
+  const width = canvas.value.width
+  const height =  canvas.value.height
+  state.allPoints = generateRandomPaths(1000, width, height)
+  console.log(state.allPoints)
+}
+
 </script>
 
 <style scoped>

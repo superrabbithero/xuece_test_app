@@ -27,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, watch, defineProps, defineEmits,computed } from 'vue';
+import { ref, defineProps, defineEmits,computed } from 'vue';
 
 const emit = defineEmits(['update:modelValue']);
 
@@ -38,12 +38,10 @@ const props = defineProps({
   },
   dragable: {
     type: Boolean,
-    required: false,
     default: false
   },
   modeless: {
     type: Boolean,
-    required: false,
     default: true
   },
   width: {
@@ -80,17 +78,17 @@ const onConfirm = async () => {
     closeModal()
 }
 
-watch(
-  props.modelValue,
-  (newVal)=>{
-    console.log(newVal)
-    if(newVal && !props.modeless){
-      document.body.style.overflow = 'hidden'
-    }else{
-      document.body.style.overflow = 'unset'
-    }
-  }
-)
+// watch(
+//   props.modelValue,
+//   (newVal)=>{
+//     console.log(newVal)
+//     if(newVal && !props.modeless){
+//       document.body.style.overflow = 'hidden'
+//     }else{
+//       document.body.style.overflow = 'unset'
+//     }
+//   }
+// )
 
 
 

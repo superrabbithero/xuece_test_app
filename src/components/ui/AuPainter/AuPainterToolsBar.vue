@@ -14,6 +14,7 @@
     <div class="edit-tools-item" @click="changeModalShow">
       <au-icon name="RiSettings2Line" size="22"></au-icon>
     </div>
+    <slot></slot>
     <div v-if="position == 'fixed'" class="edit-tools-drag" @pointerdown="dragdown($event)"  @mouseup="dragup">
       <au-icon style="user-select: none;" name="RiDraggable" size="20"></au-icon>
     </div>

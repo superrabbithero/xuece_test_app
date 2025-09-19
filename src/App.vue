@@ -50,7 +50,8 @@
     </div>
     <div class="au-main">
       <div class="header-block" v-if="!$route.meta.headerHidden"></div>
-      <router-view @toggle-header="setHeaderVisibility"></router-view>
+      <!-- <router-view @toggle-header="setHeaderVisibility"></router-view> -->
+      <router-view ></router-view>
     </div>
     <div v-if="!$route.meta.footerHidden" class="au-footer footer" >
       <div class="footer-link">
@@ -85,7 +86,7 @@ const router = useRouter()
 const menuisshow = ref(false)
 const isDark = ref(proxy.$constants.DARK) // 使用全局默认值
 // const pagetitle = ref('')
-const headerShow = ref(true)
+// const headerShow = ref(true)
 const menu = ref(null)
 
 // 将toast方法provide给子组件
@@ -147,9 +148,9 @@ onUnmounted(() => {
 })
 
 // 方法
-const setHeaderVisibility = (visible) => {
-  headerShow.value = visible
-}
+// const setHeaderVisibility = (visible) => {
+//   headerShow.value = visible
+// }
 
 const goto = (path) => {
   router.push(path)

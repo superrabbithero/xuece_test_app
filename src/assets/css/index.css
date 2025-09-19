@@ -1087,6 +1087,10 @@ textarea:active, textarea:focus{
     margin-bottom: 0;
 }*/
 
+.au-grid .rows.gap10,.au-grid .rows.gap10 .cols {
+    gap:10px;
+}
+
 .au-grid .rows .cols{
     box-sizing: border-box;
     display: flex;

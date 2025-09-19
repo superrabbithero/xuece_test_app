@@ -1,11 +1,11 @@
 <template>
     <div :class="buttonStyle" @click="rippleEffect" ref="button">
-        <au-icon class="button-icon" v-if="iconName"  :name="iconName" :size="size == 'small' ? 20:24" />
+        <au-icon class="button-icon" v-if="iconName"  :name="iconName" :size="size == 'small' ? '20':'24'" />
         <div v-if="value && value != ''" class="button-value">{{ value }}</div>
         <div v-else class="button-slot">
             <slot></slot>
         </div>
-        <au-icon v-if="isLoading" name="RiLoader5Line" class="ani-circle" :size="size == 'small' ? 20:24" />
+        <au-icon v-if="isLoading" name="RiLoader5Line" class="ani-circle" :size="size == 'small' ? '20':'24'" />
     </div>
 </template>
 
@@ -162,15 +162,21 @@ const rippleEffect = (e) => {
 }
 
 .au-button.square.small{
+    box-sizing: border-box;
     width: 32px;
+    height: 32px!important;
 }
 
 .au-button.square.medium{
+    box-sizing: border-box;
     width: 40px;
+    height: 40px!important
 }
 
 .au-button.square.large{
+    box-sizing: border-box;
     width: 48px;
+    height: 48px!important;
 }
 /*round*/
 .au-button.round.small{
