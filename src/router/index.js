@@ -100,6 +100,14 @@ const routes = [
             title: '创作中心',
         }
     },
+    {
+        path: '/xuece/issue',
+        name: 'FeedBack',
+        component: () => import("@/components/IssuePage/IssueDashboard"),
+        meta:{
+            title: 'FeedBack',
+        }
+    }
 ]
 
 const router = createRouter({

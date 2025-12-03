@@ -59,7 +59,6 @@
               <div :class="['line-text',{'active': index == curLineNum}]" :id="`line-${index}`"  v-html="line === '' ? '<br>' : escapeHtml(line)"></div>
             </div>
           </div>
-          {{showLineTools}}
           <div :class="['line-tools-box au-grid',{'show':showLineTools}]" ref="lineTools">
             <div class="rows">
               <div class="line-tools-box-item cols"><au-icon name="RiText" size="16"/></div>

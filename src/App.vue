@@ -24,7 +24,12 @@
                 <icon-wrapper name="RiBook2Line"  size="19" />
                 学测WiKi
               </div>
-              <!-- <div class="menu-item" >
+              <div class="menu-item" @click="goto('/xuece/issue')">
+                <!-- <icon-wrapper name="RiCommandLine"  size="19" /> -->
+                <icon-wrapper name="RiBook2Line"  size="19" />
+                学测Feedback
+              </div><!-- 
+              <div class="menu-item" >
                 <svg-icon name="roadblock11" />
                 待定...
               </div> -->

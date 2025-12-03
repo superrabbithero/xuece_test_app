@@ -52,7 +52,7 @@
         </div>
         <div class="cols">
           <au-button value="取消" size="small" @click="json_mode = 0"/>
-          <au-button value="保存" variant="filled" size="small" @click="jformattedJsonStr,json_mode = 0"/>
+          <au-button value="保存" variant="filled" size="small" @click="formattedJsonStr,json_mode = 0"/>
         </div>
       </div>
     </div> 
