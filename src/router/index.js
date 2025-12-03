@@ -103,7 +103,7 @@ const routes = [
     {
         path: '/xuece/issue',
         name: 'FeedBack',
-        component: () => import("@/components/IssuePage/IssueDashboard"),
+        component: () => import("@/components/IssuePage"),
         meta:{
             title: 'FeedBack',
         }

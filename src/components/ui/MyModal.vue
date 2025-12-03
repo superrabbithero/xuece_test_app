@@ -3,6 +3,9 @@
   <transition name="modal-slide">
     <div class="modal" :style="{width:modal_width}" ref="modal" v-if="modelValue">     
       <div :class="{'modal-bar':true,'draged':dragable}" @mousedown="dragdown($event)"  @mouseup="dragup">
+        <div class="modal-title">
+          {{title}}
+        </div>
         <div class="modal-close" @click="closeModal">
         </div>
       </div>
@@ -47,6 +50,10 @@ const props = defineProps({
   width: {
     type: [Number,String],
     default : 400
+  },
+  title: {
+    type: String,
+    default: null
   },
   confirmTitle: {
     type: String,
